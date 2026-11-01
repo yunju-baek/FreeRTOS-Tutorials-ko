@@ -1,16 +1,18 @@
 # Tutorial 16: event group을 통한 task 동기화 (Task Synchronization using Event Groups)
 
-이 단원에서는 분학되어 병렬로 실행되는 여러 task가 각자의 작업을 마친 뒤, **모든 task가 약속된 동기화 지점(Sync Point)에 다 도착할 때까지 대기했다가 동시에 다음 단계로 출발하는 장벽 동기화(Barrier / Rendezvous Synchronization)**를 배운다.
+[학습 목차](README.md) · [공통 준비](getting-started.md) · [공식 튜토리얼 번역](../docs/tutorial_16/README.md) · [이전 단원](tutorial_15.md)
+
+이 단원에서는 작업을 나누어 수행하는 여러 task가 각자의 작업을 마친 뒤, **모든 task가 약속된 동기화 지점(Sync Point)에 다 도착할 때까지 대기했다가 모두 도착하면 다음 단계로 진행할 수 있게 되는 장벽 동기화(Barrier / Rendezvous Synchronization)**를 배운다.
 
 ---
 
 ## 1. 이번 실습에서 할 일
 
-* **해결하려는 문제**: 3개의 task(예: 센서 초기화, 통신망 접속, 파일시스템 마운트)가 각자 걸리는 시간이 다를 때, 모든 초기화가 100% 끝난 시점에 메인 루프를 동시에 시작하고 싶다.
+* **해결하려는 문제**: 3개의 task(예: 센서 초기화, 통신망 접속, 파일시스템 마운트)가 각자 걸리는 시간이 다를 때, 모든 초기화가 끝난 뒤에만 다음 작업을 시작하도록 한다.
 * **학습 목표**:
   1. 랑데부(Rendezvous) 또는 장벽(Barrier) 동기화의 개념과 필요성을 설명할 수 있다.
   2. `xEventGroupSync()` API를 사용하여 각 task가 "나 도착했다"고 알리는 동시에 "다른 모든 task의 도착"을 대기하는 원자적(Atomic) 동작을 구현한다.
-  3. 모든 task가 동기화 지점에 도달했을 때 비트가 자동으로 클리어되며 일제히 빠져나가는 과정을 관찰한다.
+  3. 모든 task가 동기화 지점에 도달했을 때 비트가 자동으로 클리어되며 대기가 풀린 뒤 차례로 실행하는 과정을 관찰한다.
 
 ---
 
@@ -31,24 +33,26 @@
 
 ## 3. 개념 이해
 
-### 3.1 `xEventGroupSync`의 원자적(Atomic) 마법
-만약 이 기능을 `SetBits()`와 `WaitBits()`로 따로따로 구현하려 한다면 레이스 컨디션(경쟁 상태)이 발생하기 쉽다.  
+### 3.1 `xEventGroupSync`의 원자적 동작
+
+다음 그림의 빠름·보통·느림은 도착 순서의 개념 예시다. 원본은 세 task 모두 같은 1000ms 지연을 사용하며 고정된 속도 순위를 지정하지 않는다.
+만약 이 기능을 `SetBits()`와 `WaitBits()`로 따로따로 구현하려 한다면 레이스 컨디션(경쟁 상태)이 발생하기 쉽다.
 `xEventGroupSync()`는 **"내 비트를 세팅함과 동시에 다른 모든 비트를 대기"**하는 동작을 단 하나의 API 내부에서 원자적으로 처리한다.
 
 ```mermaid
 flowchart TD
     subgraph Tasks["3개 태스크의 진행 속도가 다름"]
-        T1["Task 1 (빠름): 1번 도착! → TASK_1_BIT 세팅 후 장벽에서 대기"]
-        T2["Task 2 (보통): 2번 도착! → TASK_2_BIT 세팅 후 장벽에서 대기"]
-        T3["Task 3 (느림): 3번 도착! → TASK_3_BIT 세팅! (모두 모임!)"]
+        T1["Task 1 (빠름): 1번 도착 → TASK_1_BIT 세팅 후 장벽에서 대기"]
+        T2["Task 2 (보통): 2번 도착 → TASK_2_BIT 세팅 후 장벽에서 대기"]
+        T3["Task 3 (느림): 3번 도착 → TASK_3_BIT 세팅 (모두 모임)"]
     end
 
     subgraph Barrier["장벽 (Barrier, xEventGroupSync)"]
-        B1["[ TASK_1_BIT | TASK_2_BIT | TASK_3_BIT ] 모두 충족!"]
+        B1["[ TASK_1_BIT | TASK_2_BIT | TASK_3_BIT ] 모두 충족"]
     end
 
-    subgraph Exit["동시 출발"]
-        E1["비트 자동 초기화 (0으로 클리어)"] --> E2["Task 1, 2, 3 일제히 통과!"]
+    subgraph Exit["장벽 조건 충족"]
+        E1["비트 자동 초기화 (0으로 클리어)"] --> E2["대기 task는 Ready, 선택되는 순서로 통과"]
     end
 
     T1 --> Barrier
@@ -62,7 +66,7 @@ flowchart TD
    * Task 2: `TASK_2_BIT ( 1UL << 1 )`
    * Task 3: `TASK_3_BIT ( 1UL << 2 )`
 2. 동기화 지점에 도달하면 각자 자기 비트를 1로 켜고, 3개 비트가 모두 1이 될 때까지 기다린다.
-3. 마지막 세 번째 task가 도착하여 자기 비트를 켜는 순간, 3개 비트가 모두 1이 되며 **모든 task가 동시에 대기에서 풀려나 장벽을 빠져나간다!**
+3. 마지막 세 번째 task가 도착하여 자기 비트를 켜는 순간, 3개 비트가 모두 1이 되며 대기 중인 task들이 Ready가 된다. 마지막 도착 task와 대기에서 풀린 task는 스케줄링 순서에 따라 다음 코드를 실행한다.
 4. 커널은 장벽을 통과시키는 순간 해당 비트들을 자동으로 0으로 클리어해 주므로 다음 주기에서 장벽을 그대로 재사용할 수 있다.
 
 ---
@@ -77,13 +81,13 @@ sequenceDiagram
     participant T3 as Task 3
     participant Sync as xEventGroupSync (장벽)
 
-    T1->>Sync: Task 1 도착 (TASK_1_BIT 세팅) → 대기 진입
     Note over T1: "Task 1 reached sync point."
-    T2->>Sync: Task 2 도착 (TASK_2_BIT 세팅) → 대기 진입
+    T1->>Sync: Task 1 도착 (TASK_1_BIT 세팅) → 대기 진입
     Note over T2: "Task 2 reached sync point."
-    T3->>Sync: Task 3 도착 (TASK_3_BIT 세팅) → 전원 도착 완료!
+    T2->>Sync: Task 2 도착 (TASK_2_BIT 세팅) → 대기 진입
     Note over T3: "Task 3 reached sync point."
-    Note over Sync: 모든 비트 충족! 비트 클리어 후 3개 task 동시 석방!
+    T3->>Sync: Task 3 도착 (TASK_3_BIT 세팅) → 전원 도착 완료
+    Note over Sync: 모든 비트 충족, 비트 클리어<br/>대기 해제와 실제 실행 시점은 다름
     Sync-->>T1: 대기 해제 → "Task 1 exited sync point."
     Sync-->>T2: 대기 해제 → "Task 2 exited sync point."
     Sync-->>T3: 대기 해제 → "Task 3 exited sync point."
@@ -114,10 +118,15 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
 
 ## 6. 직접 구현 또는 관찰 준비
 
+전체 참조 해답은 [tutorial_16.c](solutions/tutorial_16.c)에 있다. 먼저 TODO별 힌트를 따라 작성하고, [자기 코드 보존·해답 적용·복구 절차](getting-started.md#solution-workflow)에 따라 비교한다.
+
 `source/tutorials/tutorial_16/source/tutorial_16.c` 파일을 열고 4개의 TODO를 완성한다.
 
 ### 6.1 TODO 1: 이벤트 그룹 생성 (`main` 함수)
 88~91행: `xEventGroupCreate()` 호출.
+
+* **TODO 1 힌트 1**: 세 task의 도착 비트를 하나의 객체에 모은다.
+* **TODO 1 힌트 2**: `main`에서 이벤트 그룹을 생성하고 `xEventGroup`에 저장한다.
 
 <details>
 <summary>TODO 1 해답 코드 보기</summary>
@@ -125,10 +134,15 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
 ```c
     xEventGroup = xEventGroupCreate();
 ```
+
+**이유**: 세 task의 도착 비트를 하나의 객체에 모은다.
 </details>
 
 ### 6.2 TODO 2: Task 1의 동기화 지점 (`prvTask1`)
 119~126행: 자기 비트 `TASK_1_BIT`를 세팅하고 3개 비트 전부를 기다린다.
+
+* **TODO 2 힌트 1**: Task 1은 자기 도착만 알리고 세 task 모두의 도착을 기다린다.
+* **TODO 2 힌트 2**: `prvTask1`의 Sync에서 설정 비트는 `TASK_1_BIT`, 대기 마스크는 세 비트의 OR, 대기는 `portMAX_DELAY`다.
 
 <details>
 <summary>TODO 2 해답 코드 보기</summary>
@@ -139,10 +153,17 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
                          ( TASK_1_BIT | TASK_2_BIT | TASK_3_BIT ),
                          portMAX_DELAY );
 ```
+
+**이유**: Task 1은 자기 도착만 알리고 세 task 모두의 도착을 기다린다.
 </details>
 
 ### 6.3 TODO 3 & 4: Task 2와 Task 3의 동기화 지점
 146~153행, 173~180행: 각각 `TASK_2_BIT`, `TASK_3_BIT`를 세팅하도록 작성한다.
+
+* **TODO 3 힌트 1**: Task 2도 자기 비트와 전체 대기 마스크를 구별한다.
+* **TODO 3 힌트 2**: `prvTask2`에서는 두 번째 인자만 `TASK_2_BIT`로 한다. 세 task를 기다리는 마스크는 유지한다.
+* **TODO 4 힌트 1**: Task 3의 도착도 구별해야 세 비트가 모두 채워진다.
+* **TODO 4 힌트 2**: `prvTask3`에서는 설정 비트를 `TASK_3_BIT`로 두고 나머지 조건을 맞춘다.
 
 <details>
 <summary>TODO 3 & 4 해답 코드 보기</summary>
@@ -160,6 +181,8 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
                          ( TASK_1_BIT | TASK_2_BIT | TASK_3_BIT ),
                          portMAX_DELAY );
 ```
+
+**이유**: Task 2도 자기 비트와 전체 대기 마스크를 구별한다. Task 3의 도착도 구별해야 세 비트가 모두 채워진다.
 </details>
 
 > 전체 완성 코드는 [`ko/guides/solutions/tutorial_16.c`](solutions/tutorial_16.c)에서 확인할 수 있다.
@@ -168,17 +191,17 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
 
 ## 7. 빌드와 실행
 
-저장소 루트에서 다음 명령을 실행한다:
+[공통 준비](getting-started.md)의 학습용 사본 루트에서 다음 명령을 실행한다:
 
 ```bash
 # 1. CMake 빌드 구성 (Tutorial 16 지정)
-cmake -B build -S source -DTUTORIAL=16
+cmake -S source -B build/tutorial_16 -DTUTORIAL=16
 
 # 2. 컴파일 및 빌드
-cmake --build build
+cmake --build build/tutorial_16
 
 # 3. 바이너리 실행
-./build/freertos_example
+./build/tutorial_16/freertos_example
 ```
 
 * **종료 방법**: 터미널에서 **`Ctrl + C`**를 누른다.
@@ -187,7 +210,10 @@ cmake --build build
 
 ## 8. 결과 해석
 
-### 8.1 정상 실행 출력 화면
+### 8.1 출력 예시
+
+같은 반복 회차의 모든 도착 뒤에만 해당 회차의 출발이 가능하다. 도착·출발 순서와 로그의 묶음 경계는 고정하지 않는다.
+
 ```text
 Task 1 reached sync point.
 Task 2 reached sync point.
@@ -198,10 +224,10 @@ Task 2 exited sync point.
 ```
 
 ### 8.2 판정 기준 및 해석
-* **완벽한 장벽 동작 증명**:
-  1. `Task 1 reached...`, `Task 2 reached...`가 먼저 출력되었지만, 그 누구도 `exited sync point`로 빠져나가지 못하고 멈춰있었다.
-  2. 마지막 `Task 3 reached sync point.`가 찍히는 그 순간, 3개 task의 `exited sync point.`가 연달아 출력되었다!
-* 세 task가 완벽하게 한 지점에서 만나 서로의 완료를 확인하고 동시에 다음 단계로 진행했음을 증명한다.
+
+각 task의 첫 번째·두 번째 등 **같은 반복 회차**를 연결해 읽는다. 그 회차의 세 `reached` 로그가 모두 나온 뒤에야 어느 task든 해당 회차의 `exited`를 출력할 수 있다. 도착 순서와 빠져나오는 순서는 고정하지 않는다.
+
+다음 회차의 빠른 task가 출력한 `reached`가 이전 회차의 다른 task의 `exited`와 섞일 수도 있다. 따라서 전체 로그를 무조건 6줄씩 나누거나 동시 실행의 증거로 읽으면 안 된다. 장벽은 순서 조건을 맞추며 한 코어에서 세 task를 동시에 실행시키지 않는다.
 
 ---
 
@@ -209,7 +235,7 @@ Task 2 exited sync point.
 
 | 증상 | 원인 | 해결 방법 |
 | :--- | :--- | :--- |
-| `reached sync point`만 2개 찍히고 영원히 멈춤 | 특정 task의 `uxBitsToSet` 비트 번호를 오타 냈음 | Task 1은 BIT1, Task 2는 BIT2, Task 3은 BIT3인지 확인 |
+| `reached sync point`만 2개 찍히고 영원히 멈춤 | 특정 task의 `uxBitsToSet` 비트 번호를 오타 냈음 | 각 task의 생성 성공과 `TASK_1_BIT`, `TASK_2_BIT`, `TASK_3_BIT`가 서로 다르게 설정되는지 확인 |
 | `exited`가 즉시 출력됨 | `uxBitsToWaitFor`에 자기 비트 1개만 전달했음 | 기다릴 비트 마스크에 3개 비트의 OR 결합을 넘겼는지 확인 |
 
 ---
@@ -232,17 +258,30 @@ Task 2 exited sync point.
 <summary>정답 및 해설 확인</summary>
 
 * **정답**: **멀티태스크 시스템 부팅 및 초기화 시퀀스**.
-* **설명**: 네트워크 스택, 파일시스템, 센서 드라이버가 각자 독립된 task에서 비동기적으로 초기화를 수행한 뒤, 모든 모듈의 준비가 완료되었을 때 비로소 메인 비즈니스 로직을 동시에 기동시키고자 할 때 가장 이상적이다.
+* **설명**: 네트워크 스택, 파일시스템, 센서 드라이버가 각자 독립된 task에서 비동기적으로 초기화를 수행한 뒤, 모든 모듈의 준비가 완료되었을 때 비로소 다음 단계의 작업을 시작하도록 할 때 유용하다.
 </details>
+
+### 질문 3 (한 조건 변형과 실행 추적)
+`prvTask1`의 장벽 뒤 지연값만 1000ms에서 2000ms로 바꾼다.
+
+실행 전에 바뀔 결과와 유지될 조건을 각각 적는다. 자기 풀이와 변경 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)로 남긴다. 한 조건만 수정하고 `cmake --build build/tutorial_16`으로 다시 빌드한 뒤 실행해 예측과 비교한다. 아래 해설은 변형의 예상 결과이며, 직접 얻은 로그와 구분한다.
+
+<details>
+<summary>예상 결과와 해설 확인</summary>
+
+첫 회차 뒤 Task 1의 다음 도착이 늦어진다. 다른 task는 다음 장벽에서 기다리며 같은 회차의 모든 reached 뒤에만 exited가 나오는 조건은 유지된다. 도착·출발 순서를 고정하지 않는다.
+</details>
+
+**복구와 재확인**: 변경한 한 값(추가한 코드라면 그 한 줄)을 원래대로 돌리고 같은 단원을 다시 빌드·실행한다. 원래 조건의 8절 결과와 비교한다. 설명이 어려우면 [관련 개념 다시 읽기](#8-결과-해석)로 돌아간다.
 
 ---
 
 ## 11. 다음 학습
 
-이벤트 그룹은 복합 이벤트와 다자간 동기화에 매우 훌륭하지만, 별도의 EventGroup 커널 객체를 메모리에 생성해야 하고 문맥 전환 비용이 다소 발생한다.  
+이벤트 그룹은 복합 이벤트와 다자간 동기화에 매우 훌륭하지만, 별도의 EventGroup 커널 객체를 메모리에 생성해야 하고 문맥 전환 비용이 다소 발생한다.
 만약 어떤 특정 task에게만 신호를 보내고 싶다면, 굳이 무거운 큐나 세마포어 객체를 만들 필요가 있을까?
 
-이제 **[Tutorial 17: task notification을 경량 binary semaphore처럼 사용 (Using Task Notifications as a Light Weight Binary Semaphore)](tutorial_17.md)**으로 넘어가서, 별도 객체 없이 45% 더 빠르고 메모리를 전혀 쓰지 않는 **태스크 직접 알림(Task Notification)**의 경이로운 세계를 배워보자!
+이제 **[Tutorial 17: task notification을 경량 binary semaphore처럼 사용 (Using Task Notifications as a Light Weight Binary Semaphore)](tutorial_17.md)**으로 넘어가서, 별도 통신 객체를 추가하지 않고 TCB의 알림 저장 공간을 사용하는 태스크 알림을 배운다.
 
 * **한국어 커널북 심화 읽기**:
   * [9.4장: event group을 이용한 task 동기화](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/27d03c61cd2a6cf5a6fa6333082218ef706f5b89/ko/ch09.md)

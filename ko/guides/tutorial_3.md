@@ -1,12 +1,14 @@
 # Tutorial 3: 정적 메모리 할당 (Static Allocation)
 
-이 단원에서는 힙(Heap) 메모리를 사용하지 않고, 컴파일 시점에 사용자가 직접 메모리 버퍼를 준비하여 task를 생성하는 **정적 메모리 할당(Static Allocation)** 기법을 배운다.
+[학습 목차](README.md) · [공통 준비](getting-started.md) · [공식 튜토리얼 번역](../docs/tutorial_3/README.md) · [이전 단원](tutorial_2.md)
+
+이 단원에서는 사용자가 TCB와 스택 버퍼를 준비하여 task를 생성하는 **정적 메모리 할당(Static Allocation)** 기법을 배운다.
 
 ---
 
 ## 1. 이번 실습에서 할 일
 
-* **해결하려는 문제**: 런타임 힙 고갈이나 메모리 단편화(Fragmentation) 위험이 없는 높은 신뢰성의 시스템을 구축하기 위해 task의 TCB와 스택을 정적으로 할당한다.
+* **해결하려는 문제**: task의 TCB와 스택에 필요한 저장 공간을 사용자가 제공하여 해당 두 버퍼의 동적 할당을 피한다.
 * **학습 목표**:
   1. 동적 할당(`xTaskCreate`)과 정적 할당(`xTaskCreateStatic`)의 메모리 관리 주체 차이를 설명할 수 있다.
   2. `StaticTask_t` 구조체와 `StackType_t` 배열을 선언하고 `xTaskCreateStatic()` API에 전달하는 방법을 익힌다.
@@ -20,7 +22,7 @@
 * **변수의 저장 기간 (Storage Duration)**:
   * **지역 변수 (자동 변수)**: 함수 내부에서 선언된 변수는 함수가 실행되는 동안에만 스택 프레임에 존재하며 함수가 종료되면 메모리에서 사라진다.
   * **전역/정적 변수 (`static`)**: 함수 외부 또는 `static` 키워드로 선언된 변수는 프로그램이 시작될 때 BSS 또는 DATA 메모리 영역에 고정 배치되며, 프로그램이 종료될 때까지 메모리에서 영구히 유지된다.
-  * **중요**: task의 TCB와 스택은 task가 살아있는 동안 항상 메모리에 유지되어야 하므로, 반드시 **전역 변수** 또는 **정적(`static`) 변수**로 선언해야 한다!
+  * **중요**: task의 TCB와 스택은 task가 살아있는 동안 항상 메모리에 유지되어야 하므로, 그 수명을 보장해야 한다. 이 예제처럼 **정적(`static`) 변수**로 두면 그 조건을 명확히 만족한다.
 
 ### 2.2 확인할 소스 및 설정 파일
 * 실습 코드: [`source/tutorials/tutorial_3/source/tutorial_3.c`](../../source/tutorials/tutorial_3/source/tutorial_3.c)
@@ -41,21 +43,22 @@ FreeRTOS의 모든 task는 TCB(제어 블록)와 Stack(독립 스택)이라는 2
 ```mermaid
 flowchart TD
     subgraph Dynamic["동적 할당 (xTaskCreate)"]
+        direction TB
         D1["FreeRTOS 힙 (pvPortMalloc)"] --> D2["커널이 런타임에 힙에서 TCB & Stack을 쪼개서 할당"]
         D2 --> D3["장점: 코드 간단, 필요 시 생성/삭제 용이"]
         D2 --> D4["단점: 힙 단편화 위험, 런타임 Out-of-Memory 실패 가능"]
     end
 
     subgraph Static["정적 할당 (xTaskCreateStatic)"]
+        direction TB
         S1["BSS/DATA 세그먼트 (정적 RAM)"] --> S2["개발자가 컴파일 타임에 TCB 구조체와 Stack 배열을 직접 선언"]
-        S2 --> S3["장점: 힙 고갈 위험 제로, 컴파일 시점에 RAM 소모량 확정, 결정론적 동작"]
+        S2 --> S3["장점: TCB와 스택 버퍼의 크기와 위치를 미리 확보"]
         S2 --> S4["단점: 사용하지 않을 때도 메모리 차지, 버퍼 변수 관리 필요"]
     end
 ```
 
-### 3.2 안전 필수(Safety-critical) 시스템에서 정적 할당을 선호하는 이유
-자동차 전장(ISO 26262), 항공우주(DO-178C), 의료기기 등 사람의 생명과 직결된 시스템에서는 런타임에 힙 메모리가 부족하여 task 생성이 실패하는 상황을 절대 허용하지 않는다.  
-정적 할당을 사용하면 컴파일/링크 시점에 전체 펌웨어의 RAM 사용량이 100% 확정되므로, 링커 단계에서 메모리 초과 여부를 즉시 발견할 수 있어 런타임 안정성이 완벽하게 보장된다.
+### 3.2 정적 할당으로 확인할 수 있는 범위
+TCB와 스택 배열을 미리 선언하면 두 버퍼의 크기와 저장 기간을 확인하기 쉽다. 그렇다고 전체 펌웨어의 RAM 사용량이나 런타임 안전성이 자동으로 보장되지는 않는다. 스택 초과, 잘못된 포인터, 다른 동적 할당은 별도로 점검해야 한다. 특히 이 POSIX 실습은 호스트 스레드와 이벤트 객체에서도 메모리를 사용한다.
 
 ---
 
@@ -74,11 +77,11 @@ sequenceDiagram
     Kernel->>RAM: 넘겨받은 버퍼를 TCB 및 스택으로 초기화
     Kernel-->>Main: 생성된 Task의 핸들(주소) 반환
     Main->>Kernel: vTaskStartScheduler() 호출
-    Kernel->>Task: Task 스택으로 점프하여 실행 시작
+    Kernel->>Task: 포트가 준비한 task 실행 문맥에서 시작
     loop 매 1초마다 반복
         Task->>Task: "Tutorial 3 running..." 출력
         Task->>Kernel: vTaskDelay(1000ms) 호출 (Blocked 전이)
-        Kernel-->>Task: 1000ms 후 복귀
+        Kernel-->>Task: 지연 뒤 Ready, 선택되면 실행
     end
 ```
 
@@ -98,7 +101,7 @@ static StackType_t xTaskStackBuffer[ configMINIMAL_STACK_SIZE ];
 ```c
 TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
                                 const char * const pcName,
-                                const uint32_t ulStackDepth,
+                                const configSTACK_DEPTH_TYPE ulStackDepth,
                                 void * const pvParameters,
                                 UBaseType_t uxPriority,
                                 StackType_t * const puxStackBuffer,
@@ -118,21 +121,24 @@ TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
 | `pxTaskBuffer` | `&( xTaskTcbBuffer )` | 준비한 `StaticTask_t` 구조체 변수의 주소 포인터. |
 
 * **반환값 타입의 차이**:
-  * `xTaskCreate()`는 성공/실패 여부인 `BaseType_t`(`pdPASS`/`pdFAIL`)를 반환했다.
-  * 반면 `xTaskCreateStatic()`은 성공 시 **생성된 task의 핸들(`TaskHandle_t`)**을 반환하고, 버퍼 포인터가 잘못 전달된 경우 `NULL`을 반환한다.
+  * `xTaskCreate()`는 성공/실패 여부인 `BaseType_t`(`pdPASS`/`errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY`)를 반환했다.
+  * 반면 `xTaskCreateStatic()`은 성공 시 **생성된 task의 핸들(`TaskHandle_t`)**을 반환하고, 유효하지 않은 버퍼 인자는 `NULL` 반환이나 assertion의 원인이 된다. 이 설정에서는 assertion으로 먼저 멈출 수 있다.
   * 따라서 검증 코드도 `configASSERT( xCreatedTaskHandle != NULL );`로 작성된다.
 
 ---
 
 ## 6. 직접 구현 또는 관찰 준비
 
+전체 참조 해답은 [tutorial_3.c](solutions/tutorial_3.c)에 있다. 먼저 TODO별 힌트를 따라 작성하고, [자기 코드 보존·해답 적용·복구 절차](getting-started.md#solution-workflow)에 따라 비교한다.
+
 `source/tutorials/tutorial_3/source/tutorial_3.c` 파일을 열고 두 개의 TODO를 완성한다.
 
 ### 6.1 TODO 1: `xTaskCreateStatic` 호출하기
 `tutorial_3.c`의 53~66행 주석 부분을 찾는다:
 
-* **힌트 1**: 함수의 반환값을 `xCreatedTaskHandle` 변수에 저장해야 바로 아래의 `configASSERT( xCreatedTaskHandle != NULL );` 검증을 통과한다.
-* **힌트 2**: 스택 버퍼에는 `&( xTaskStackBuffer[ 0 ] )`를, TCB 버퍼에는 `&( xTaskTcbBuffer )`를 전달한다.
+
+* **TODO 1 힌트 1**: 커널이 버퍼를 새로 할당하는 대신 사용자가 준비한 두 버퍼를 제공한다.
+* **TODO 1 힌트 2**: 앞의 다섯 인자 뒤에 스택 배열 시작 주소, TCB 주소 순서로 전달하고 반환 핸들을 `xCreatedTaskHandle`에 저장한다.
 
 <details>
 <summary>TODO 1 해답 코드 보기</summary>
@@ -146,10 +152,15 @@ TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
                                             &( xTaskStackBuffer[ 0 ] ),
                                             &( xTaskTcbBuffer ) );
 ```
+
+**이유**: 커널이 버퍼를 새로 할당하는 대신 사용자가 준비한 두 버퍼를 제공한다.
 </details>
 
 ### 6.2 TODO 2: `vTaskStartScheduler` 호출하기
 `tutorial_3.c`의 69행 주석 부분을 찾는다:
+
+* **TODO 2 힌트 1**: 정적 생성도 실행 시작에는 스케줄러가 필요하다.
+* **TODO 2 힌트 2**: 핸들 검사를 통과한 뒤 인자 없는 스케줄러 시작 함수를 호출한다.
 
 <details>
 <summary>TODO 2 해답 코드 보기</summary>
@@ -157,6 +168,8 @@ TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
 ```c
     vTaskStartScheduler();
 ```
+
+**이유**: 정적 생성도 실행 시작에는 스케줄러가 필요하다.
 </details>
 
 > 전체 완성 코드는 [`ko/guides/solutions/tutorial_3.c`](solutions/tutorial_3.c)에서 확인할 수 있다.
@@ -165,17 +178,17 @@ TaskHandle_t xTaskCreateStatic( TaskFunction_t pxTaskCode,
 
 ## 7. 빌드와 실행
 
-저장소 루트에서 다음 명령을 실행한다:
+[공통 준비](getting-started.md)의 학습용 사본 루트에서 다음 명령을 실행한다:
 
 ```bash
 # 1. 빌드 디렉터리 구성 (Tutorial 3 지정)
-cmake -B build -S source -DTUTORIAL=3
+cmake -S source -B build/tutorial_3 -DTUTORIAL=3
 
 # 2. 컴파일 및 빌드
-cmake --build build
+cmake --build build/tutorial_3
 
 # 3. 바이너리 실행
-./build/freertos_example
+./build/tutorial_3/freertos_example
 ```
 
 * **종료 방법**: 터미널에서 **`Ctrl + C`**를 누른다.
@@ -184,7 +197,10 @@ cmake --build build
 
 ## 8. 결과 해석
 
-### 8.1 정상 실행 출력 화면
+### 8.1 출력 예시
+
+정적 생성 뒤 task가 반복 실행되는지 확인한다. 화면 출력만으로 메모리 할당 경로 전체를 판별하지 않는다.
+
 ```text
 Tutorial 3 running...
 Tutorial 3 running...
@@ -193,8 +209,8 @@ Tutorial 3 running...
 ```
 
 ### 8.2 판정 기준 및 해석
-* **결과의 일관성**: Tutorial 2와 화면에 찍히는 로그(`Tutorial 3 running...`)의 주기나 외형은 완전히 동일하다.
-* **핵심 차이**: Tutorial 2에서는 힙 메모리 관리자(`heap_x.c`)가 호출되어 힙 영역에서 메모리를 동적으로 떼어왔지만, Tutorial 3에서는 **힙 관리 함수가 단 한 번도 호출되지 않고** BSS 세그먼트에 고정된 전역 메모리 주소에서 task가 실행되었다.
+* **결과의 일관성**: Tutorial 2와 화면에 찍히는 로그(`Tutorial 3 running...`)의 주기나 외형은 비슷한하다.
+* **핵심 차이**: Tutorial 2에서는 힙 메모리 관리자(`heap_x.c`)가 호출되어 힙 영역에서 메모리를 동적으로 떼어왔지만, Tutorial 3에서는 **이 task의 TCB와 스택 배열을 사용자가 제공한다**. POSIX 포트 내부의 이벤트와 스레드 구현은 별도 동적 메모리를 사용할 수 있어 전체 실행에서 힙을 전혀 쓰지 않는다는 뜻은 아니다.
 
 ---
 
@@ -202,7 +218,7 @@ Tutorial 3 running...
 
 | 증상 | 원인 | 해결 방법 |
 | :--- | :--- | :--- |
-| `assertion "xCreatedTaskHandle != NULL" failed` | 반환값 대입 누락 또는 버퍼 주소로 `NULL` 전달 | `xCreatedTaskHandle = xTaskCreateStatic(...)` 대입 확인 |
+| 출력 없이 멈춤 | 잘못된 버퍼 인자나 반환값 대입 누락으로 assertion에 도달할 수 있음 | 버퍼의 주소·크기·수명과 `xCreatedTaskHandle` 대입 확인. 이 설정의 assertion은 메시지를 출력하지 않음 |
 | 컴파일 에러: `undefined reference to xTaskCreateStatic` | `FreeRTOSConfig.h`에서 정적 할당 미지원 설정 | `FreeRTOSConfig.h`의 `#define configSUPPORT_STATIC_ALLOCATION 1` 확인 |
 | 컴파일 경고: `assignment to TaskHandle_t from incompatible pointer type` | 매개변수 순서 뒤바뀜 | 6번째가 스택 버퍼(`puxStackBuffer`), 7번째가 TCB 버퍼(`pxTaskBuffer`)인지 순서 재확인 |
 
@@ -211,13 +227,12 @@ Tutorial 3 running...
 ## 10. 혼자 확인하기 (자가 점검)
 
 ### 질문 1 (개념)
-`tutorial_3.c`에서 선언한 `xTaskTcbBuffer`와 `xTaskStackBuffer`를 파일 상단의 `static` 변수가 아니라, `main()` 함수 내부의 지역 변수(`StaticTask_t xTaskTcbBuffer;`)로 선언하면 어떤 치명적인 문제가 발생하는가?
+정적 task 버퍼의 핵심 조건은 무엇인가? `main()` 지역 변수이면 언제나 스케줄러 시작과 동시에 사라지는가?
 
 <details>
 <summary>정답 및 해설 확인</summary>
 
-* **정답**: 스택 오염 및 시스템 크래시(HardFault)가 발생한다.
-* **이유**: `main()` 함수 내부의 지역 변수는 `main()` 함수의 스택 프레임에 위치한다. 스케줄러가 시작되어 다른 task로 문맥 전환이 일어나거나 `main()`의 스택 영역이 재사용되면, task의 TCB와 스택 내용이 다른 데이터로 덮어쓰여져 커널이 오작동하게 된다. 따라서 정적 할당 버퍼는 반드시 **영구히 존재하는 전역 또는 정적(`static`) 메모리 영역**에 선언해야 한다.
+TCB와 스택은 task가 사용하는 동안 유효해야 한다. 일반 함수가 반환하면 그 자동 변수의 수명이 끝나므로 이런 버퍼를 넘기면 안 된다. 그러나 스케줄러 호출만으로 모든 포트에서 `main()`의 지역 변수가 사라진다고 단정할 수도 없다. 이 예제는 포트의 스택 재사용 여부에 기대지 않도록 파일 범위 `static` 버퍼를 사용한다.
 </details>
 
 ### 질문 2 (API 비교)
@@ -227,12 +242,12 @@ Tutorial 3 running...
 <summary>정답 및 해설 확인</summary>
 
 * **정답**:
-  * `xTaskCreate()`: 타입은 `BaseType_t`이며, 성공 시 `pdPASS`(1), 메모리 부족 시 `pdFAIL`(또는 `errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY`)을 반환한다.
-  * `xTaskCreateStatic()`: 타입은 `TaskHandle_t`이며, 성공 시 생성된 task의 핸들 포인터, 실패 시 `NULL`을 반환한다.
+  * `xTaskCreate()`: 타입은 `BaseType_t`이며, 성공 시 `pdPASS`(1), 메모리 부족 시 `errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY`을 반환한다.
+  * `xTaskCreateStatic()`: 타입은 `TaskHandle_t`이며, 성공 시 생성된 task의 핸들 포인터, 유효하지 않은 버퍼는 assertion 또는 `NULL`의 원인이 된다.
 </details>
 
 ### 질문 3 (설계 응용)
-만약 시스템에 동적 힙 할당을 완전히 배제하고 오직 정적 할당만 허용하고 싶다면 `FreeRTOSConfig.h` 설정을 어떻게 구성해야 하는가?
+FreeRTOS 공통 커널의 동적 생성 API를 끄고 정적 생성 API만 제공하려면 `FreeRTOSConfig.h` 설정을 어떻게 구성해야 하는가?
 
 <details>
 <summary>정답 및 해설 확인</summary>
@@ -242,15 +257,28 @@ Tutorial 3 running...
   #define configSUPPORT_STATIC_ALLOCATION   1
   #define configSUPPORT_DYNAMIC_ALLOCATION  0
   ```
-* **효과**: 힙 관리 파일(`heap_x.c`)을 프로젝트에서 완전히 제거할 수 있어 코드 크기를 줄이고 메모리 단편화 가능성을 원천 차단한다.
+* **범위**: 이 설정은 커널 API의 할당 방식을 제한한다. 애플리케이션, 라이브러리, POSIX 포트까지 동적 할당을 하지 않는다는 보장은 아니다. 정적 Idle task 버퍼 제공 등 포트·프로젝트 요구사항도 충족해야 한다.
 </details>
+
+### 질문 4 (한 조건 변형과 실행 추적)
+`prvTaskFunction`의 `pdMS_TO_TICKS(1000)`만 `pdMS_TO_TICKS(500)`으로 바꾼다.
+
+실행 전에 바뀔 결과와 유지될 조건을 각각 적는다. 자기 풀이와 변경 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)로 남긴다. 한 조건만 수정하고 `cmake --build build/tutorial_3`으로 다시 빌드한 뒤 실행해 예측과 비교한다. 아래 해설은 변형의 예상 결과이며, 직접 얻은 로그와 구분한다.
+
+<details>
+<summary>예상 결과와 해설 확인</summary>
+
+출력 빈도가 늘어날 것으로 예상한다. TCB·스택 버퍼를 제공하는 정적 생성 방식과 생성 핸들은 바뀌지 않는다. 로그만으로 전체 힙 사용 여부를 판단할 수는 없다.
+</details>
+
+**복구와 재확인**: 변경한 한 값(추가한 코드라면 그 한 줄)을 원래대로 돌리고 같은 단원을 다시 빌드·실행한다. 원래 조건의 8절 결과와 비교한다. 설명이 어려우면 [관련 개념 다시 읽기](#3-개념-이해)로 돌아간다.
 
 ---
 
 ## 11. 다음 학습
 
-지금까지 단일 task를 생성하고 실행하는 기본 구조를 배웠다.  
-이제 **[Tutorial 4: task 우선순위 (Task Priorities)](tutorial_4.md)**로 넘어가서, 서로 다른 우선순위를 가진 여러 task가 존재할 때 FreeRTOS 스케줄러가 어떤 규칙으로 CPU를 배분하는지 배워보자!
+지금까지 단일 task를 생성하고 실행하는 기본 구조를 배웠다.
+이제 **[Tutorial 4: task 우선순위 (Task Priorities)](tutorial_4.md)**로 넘어가서, 서로 다른 우선순위를 가진 여러 task가 존재할 때 FreeRTOS 스케줄러가 어떤 규칙으로 CPU를 배분하는지 배운다.
 
 * **한국어 커널북 심화 읽기**:
   * [3.4장: 정적 메모리 할당 (Static Memory Allocation)](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/27d03c61cd2a6cf5a6fa6333082218ef706f5b89/ko/ch03.md)

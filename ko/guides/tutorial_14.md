@@ -1,6 +1,8 @@
 # Tutorial 14: 우선순위 역전과 우선순위 상속 (Priority Inversion and Priority Inheritance)
 
-이 단원에서는 공유 자원을 동기화할 때 발생할 수 있는 가장 치명적인 실시간 시스템 결함인 **우선순위 역전(Priority Inversion)**과, FreeRTOS 뮤텍스가 이를 방어하기 위해 제공하는 **우선순위 상속(Priority Inheritance)** 메커니즘을 관찰한다.
+[학습 목차](README.md) · [공통 준비](getting-started.md) · [공식 튜토리얼 번역](../docs/tutorial_14/README.md) · [이전 단원](tutorial_13.md)
+
+이 단원에서는 공유 자원을 동기화할 때 발생할 수 있는 가장  실시간 시스템 결함인 **우선순위 역전(Priority Inversion)**과, FreeRTOS 뮤텍스가 이를 방어하기 위해 제공하는 **우선순위 상속(Priority Inheritance)** 메커니즘을 관찰한다.
 
 ---
 
@@ -18,7 +20,7 @@
 
 ### 2.1 개념 복습
 * **우선순위 역전 (Priority Inversion)**: 높은 우선순위 task(H)가 실행되어야 함에도 불구하고, 낮은 우선순위 task(L)가 쥔 자원을 기다리느라 엉뚱한 중간 우선순위 task(M)가 먼저 실행되어 시스템의 우선순위 질서가 뒤집히는 현상이다.
-* **유명한 역사적 사례**: 1997년 NASA의 화성 탐사선 패스파인더(Mars Pathfinder)가 착륙 후 원인 모를 시스템 재부팅을 반복했던 사건의 원인이 바로 이 우선순위 역전 버그였다.
+* 이 단원의 실습에는 High와 Low 두 task만 있다. 아래 Medium이 등장하는 그림은 일반적인 역전 원리를 설명하는 별도 사례다.
 
 ### 2.2 확인할 소스 및 설정 파일
 * 실습 코드: [`source/tutorials/tutorial_14/source/tutorial_14.c`](../../source/tutorials/tutorial_14/source/tutorial_14.c)
@@ -30,8 +32,8 @@
 
 ## 3. 개념 이해
 
-### 3.1 악명 높은 3단계 우선순위 역전 시나리오
-태스크 3개가 있다고 가정해 보자:
+### 3.1 세 task로 설명하는 우선순위 역전
+우선순위 상속이 없는 잠금을 사용하고 task 3개가 있다고 가정한다. 실제 FreeRTOS mutex의 상속 효과는 다음 절에서 비교한다:
 * **H (High)**: 긴급 제어 작업 (우선순위 3)
 * **M (Medium)**: 긴 연산 작업 (우선순위 2)
 * **L (Low)**: 센서 로깅 작업 (우선순위 1)
@@ -46,24 +48,24 @@ sequenceDiagram
 
     L->>Res: 1. Low가 자원 획득 (잠금)
     Note over H: High가 깨어나서 자원을 요구함
-    H->>Res: 2. 자원이 잠겨있어 High가 Blocked 대기!
-    Note over M: 이때 자원과 무관한 Medium Task가 깨어남!
-    M->>M: 3. Medium이 Low보다 우선순위가 높으므로 Low를 밀어내고 CPU 장악!
-    Note over H,L: Low가 CPU를 못 받으니 자원을 반납 못함!<br/>결과적으로 가장 시급한 High가 무관한 Medium 때문에 무한정 멈춤!<br/>(Unbounded Priority Inversion 발생!)
+    H->>Res: 2. 자원이 잠겨있어 High가 Blocked 대기
+    Note over M: 이때 자원과 무관한 Medium Task가 깨어남
+    M->>M: 3. Medium이 Low보다 우선순위가 높으므로 Low를 밀어내고 CPU 장악
+    Note over H,L: Low가 CPU를 못 받으니 자원을 반납 못함!<br/>결과적으로 가장 시급한 High가 무관한 Medium 때문에 무한정 멈춤!<br/>(Unbounded Priority Inversion 발생)
 ```
 
 ### 3.2 해결책: 우선순위 상속 (Priority Inheritance)
 FreeRTOS의 Mutex는 이 문제를 방어하기 위해 **우선순위 상속** 알고리즘을 기본 내장하고 있다:
 
-> **"높은 우선순위 task(H)가 자원을 기다리며 Blocked 상태에 빠지면, 해당 자원을 쥐고 있는 낮은 우선순위 task(L)의 우선순위를 일시적으로 H의 우선순위로 끌어올린다!"**
+> **"높은 우선순위 task(H)가 자원을 기다리며 Blocked 상태에 빠지면, 해당 자원을 쥐고 있는 낮은 우선순위 task(L)의 우선순위를 일시적으로 H의 우선순위로 끌어올린다"**
 
-* **효과**: Low Task의 우선순위가 순간적으로 High와 같아지므로, 중간 우선순위인 Medium Task가 새치기(선점)하지 못한다. Low Task가 방해받지 않고 빠르게 자원을 쓰고 반납하게 되며, 반납 즉시 원래 우선순위로 복귀하고 High Task가 자원을 획득한다.
+* **효과**: Low Task의 우선순위가 순간적으로 High와 같아지므로, 중간 우선순위인 Medium Task가 선점하지 못한다. Low가 자원을 처리할 실행 기회를 얻도록 돕는다. 하지만 상속이 자원을 자동 반납하거나 교착을 해소하지는 않는다. 여러 mutex를 소유한 FreeRTOS task는 모두 반납할 때까지 상속 우선순위를 유지할 수 있다.
 
 ---
 
 ## 4. 실행 흐름 읽기
 
-`tutorial_14.c`에서는 상속 동작을 증명하기 위해 Low Task가 자신의 우선순위를 계속 출력한다:
+`tutorial_14.c`에서는 Low가 자신의 우선순위를 출력하여 상속에 따른 상승을 관찰한다. **Low에는 `xSemaphoreGive()`가 없다.** 따라서 High는 Take에서 계속 Blocked이며 이 실습은 정상적인 자원 반납이나 High의 재개를 보여 주지 않는다:
 
 ```mermaid
 sequenceDiagram
@@ -76,13 +78,14 @@ sequenceDiagram
     Low->>Mutex: 1. Low가 xMutex 획득 성공 (소유)
     Low->>Low: 2. "Task priority is 0" 출력 (기본 우선순위 0 확인)
     Low->>Low: 3. 1초 지연 진입
-    
-    Note over High: 1초 후 High Task가 깨어남!
-    High->>Mutex: 4. High가 xMutex 획득 시도 → Low가 쥐고 있으므로 Blocked 대기!
-    Note over Mutex,Low: 커널이 즉시 Low의 우선순위를 0에서 1로 강제 승격! (우선순위 상속)
-    
+
+    Note over High: 1초 후 High Task가 깨어남
+    High->>Mutex: 4. High가 xMutex 획득 시도 → Low가 쥐고 있으므로 Blocked 대기
+    Note over Mutex,Low: 커널이 즉시 Low의 우선순위를 0에서 1로 강제 승격 (우선순위 상속)
+
     Note over Low: 1초 후 Low Task가 깨어나 다음 루프 실행
-    Low->>Low: 5. "Task priority is 1" 출력! (상속받아 승격된 우선순위 증명)
+    Low->>Low: 5. "Task priority is 1" 출력
+    Note over Low,High: Low는 Give하지 않으므로 상속 유지<br/>High는 계속 Blocked
 ```
 
 ---
@@ -122,7 +125,8 @@ static void prvLowPriorityTask( void * pvParams )
     }
 }
 ```
-* `uxTaskPriorityGet( NULL )`: `NULL`을 넘기면 현재 호출 중인 자기 자신 task의 우선순위를 반환한다.
+* `uxTaskPriorityGet( NULL )`: `NULL`을 넘기면 호출한 task의 현재 유효 우선순위를 반환한다.
+* Low가 지연 중이면 상속받아도 여전히 Blocked다. 지연이 끝나 Ready가 된 뒤 높은 유효 우선순위로 선택된다.
 
 ---
 
@@ -130,23 +134,23 @@ static void prvLowPriorityTask( void * pvParams )
 
 * **실행 전 예측 질문**:
   1. Low Task의 첫 번째 출력은 어떤 우선순위 숫자가 찍힐까?
-  2. High Task가 뮤텍스를 얻으려고 시도하여 대기 상태에 들어간 뒤, Low Task의 두 번째 출력은 어떤 숫자가 찍힐까?
+  2. High Task가 뮤텍스를 얻으려고 시도하여 대기 상태에 들어간 뒤, 그 뒤 Low의 출력은 어떤 우선순위를 보여 줄까? Low가 반납하지 않으면 High는 어디에 머무는가?
 
 ---
 
 ## 7. 빌드와 실행
 
-저장소 루트에서 다음 명령을 실행한다:
+[공통 준비](getting-started.md)의 학습용 사본 루트에서 다음 명령을 실행한다:
 
 ```bash
 # 1. CMake 빌드 구성 (Tutorial 14 지정)
-cmake -B build -S source -DTUTORIAL=14
+cmake -S source -B build/tutorial_14 -DTUTORIAL=14
 
 # 2. 컴파일 및 빌드
-cmake --build build
+cmake --build build/tutorial_14
 
 # 3. 바이너리 실행
-./build/freertos_example
+./build/tutorial_14/freertos_example
 ```
 
 * **종료 방법**: 터미널에서 **`Ctrl + C`**를 누른다.
@@ -155,7 +159,10 @@ cmake --build build
 
 ## 8. 결과 해석
 
-### 8.1 정상 실행 출력 화면
+### 8.1 출력 예시
+
+기본 우선순위 0에서 상속된 1로 바뀐 뒤 유지되는 관계를 확인한다. 기본값이 출력되는 줄 수나 상승 시점을 고정하지 않는다.
+
 ```text
 Task priority is 0
 Task priority is 1
@@ -168,7 +175,7 @@ Task priority is 1
 * **첫 번째 줄 (`Task priority is 0`)**:
   * High Task가 아직 `vTaskDelay(1000)`로 잠들어 있는 동안, Low Task는 자신의 본래 기본 우선순위인 `0`으로 실행되었다.
 * **두 번째 줄 이후 (`Task priority is 1`)**:
-  * 1초 뒤 High Task가 깨어나 `xMutex`를 잡으려다 실패하여 Blocked 상태로 대기하자, **커널이 Low Task의 우선순위를 High의 우선순위인 `1`로 즉시 승격(상속)**시켰다!
+  * 1초 뒤 High Task가 깨어나 `xMutex`를 잡으려다 실패하여 Blocked 상태로 대기하자, **커널이 Low Task의 우선순위를 High의 우선순위인 `1`로 즉시 승격(상속)**시켰다
   * 따라서 `uxTaskPriorityGet(NULL)` 결과가 `1`로 바뀌어 출력되는 것이다.
 
 ---
@@ -177,8 +184,8 @@ Task priority is 1
 
 | 증상 | 원인 | 해결 방법 |
 | :--- | :--- | :--- |
-| 계속 `0`만 찍히는 현상 | High Task가 뮤텍스를 잡지 못함 | `tutorial_14.c` 원본 코드가 수정되지 않았는지 확인 |
-| 이전 빌드 결과가 실행됨 | CMake 캐시 미갱신 | `rm -rf build` 후 다시 빌드 |
+| 충분히 기다려도 계속 `0`만 출력 | High가 Take까지 도달하지 않았거나 대상 객체·우선순위가 다를 수 있음 | High 생성과 시작 지연, 같은 `xMutex` 사용, 우선순위 1을 확인. High가 획득하지 못해 대기하는 것은 원래 상속 조건임 |
+| 다른 단원 문자열 출력 | 실행 경로·구성 불일치 가능성 | `build/tutorial_14` 실행 경로와 7절의 구성 명령 확인 |
 
 ---
 
@@ -201,17 +208,30 @@ Task priority is 1
 <summary>정답 및 해설 확인</summary>
 
 * **정답**: **피해를 최소화하는 완화책(Mitigation)**이다.
-* **이유**: 하위 task가 자원을 반납할 때까지 상위 task가 기다려야 한다는 본질적인 '역전' 자체는 자원 독점 규칙상 피할 수 없다. 우선순위 상속은 무관한 중간 우선순위(Medium) task들의 새치기를 차단하여, 역전 상태가 지속되는 시간을 '하위 task가 자원을 다 쓰고 반납하는 최소 시간'으로 묶어두는(Bounded) 역할을 한다.
+* **이유**: 하위 task가 자원을 반납할 때까지 상위 task가 기다려야 한다는 본질적인 '역전' 자체는 자원 독점 규칙상 피할 수 없다. 우선순위 상속은 중간 우선순위 task에 의한 지연을 완화한다. 실제 대기 시간의 상한은 자원 보유 시간과 중첩 잠금 등으로 따로 분석해야 한다. 이 원본은 Low가 영구 보유하므로 High가 끝내 진행하지 못한다.
 </details>
+
+### 질문 3 (한 조건 변형과 실행 추적)
+`prvHighPriorityTask`의 시작 지연만 1000ms에서 2000ms로 바꾸고 Low의 지연은 유지한다.
+
+실행 전에 바뀔 결과와 유지될 조건을 각각 적는다. 자기 풀이와 변경 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)로 남긴다. 한 조건만 수정하고 `cmake --build build/tutorial_14`으로 다시 빌드한 뒤 실행해 예측과 비교한다. 아래 해설은 변형의 예상 결과이며, 직접 얻은 로그와 구분한다.
+
+<details>
+<summary>예상 결과와 해설 확인</summary>
+
+High가 Take를 시도하는 시점이 늦어져 Low가 기본 우선순위 0을 더 오래 유지할 것으로 예상한다. 이후 1을 상속해도 Low는 Give하지 않고 High는 계속 Blocked다. 0이 찍히는 줄 수를 고정하지 않는다.
+</details>
+
+**복구와 재확인**: 변경한 한 값(추가한 코드라면 그 한 줄)을 원래대로 돌리고 같은 단원을 다시 빌드·실행한다. 원래 조건의 8절 결과와 비교한다. 설명이 어려우면 [관련 개념 다시 읽기](#4-실행-흐름-읽기)로 돌아간다.
 
 ---
 
 ## 11. 다음 학습
 
-큐, 타이머, 세마포어, 뮤텍스, 우선순위 상속까지 동기화와 자원 관리의 핵심을 완벽히 정복했다!  
+큐, 타이머, 세마포어와 뮤텍스의 역할 및 우선순위 상속을 살펴보았다.
 하지만 지금까지의 동기화는 "단 하나의 사건(Event)"만 다루었다. 만약 "여러 개의 복합 조건이 동시에 만족되었을 때(예: 배터리 정상 AND SD카드 장착 AND 네트워크 연결)" task를 깨우고 싶다면 어떻게 해야 할까?
 
-이제 **[Tutorial 15: event group을 통한 이벤트 관리 (Event Management using Event Groups)](tutorial_15.md)**으로 넘어가서, 24개 이상의 비트 플래그를 한 번에 다루는 **Event Group**을 배워보자!
+이제 **[Tutorial 15: event group을 통한 이벤트 관리 (Event Management using Event Groups)](tutorial_15.md)**으로 넘어가서, 이 예제 설정에서 24개의 사용자 비트 플래그를 제공하는 **Event Group**을 배운다.
 
 * **한국어 커널북 심화 읽기**:
   * [8.3.2장: 우선순위 역전 (Priority Inversion)](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/27d03c61cd2a6cf5a6fa6333082218ef706f5b89/ko/ch08.md)

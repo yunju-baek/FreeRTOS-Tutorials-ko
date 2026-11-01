@@ -1,163 +1,160 @@
-# 공통 실습 환경 준비 가이드 (Getting Started)
+# 공통 실습 환경 준비
 
-이 문서는 FreeRTOS 튜토리얼 21종을 자신의 PC에서 직접 빌드하고 실행하기 위한 **개발 환경 구축 및 공통 실습 절차**를 안내한다.
+이 과정은 PC의 POSIX port에서 FreeRTOS 예제를 실행한다. MCU 보드 없이 task의 스케줄링·통신·동기화를 관찰할 수 있다. 호스트 운영체제가 pthread와 신호를 처리하므로, 출력 간격은 실제 보드의 실시간 성능을 측정한 값으로 해석하지 않는다.
 
----
+## 1. 사용할 환경
 
-## 1. 실습 환경 개요
+다음 두 환경에서 T01–T21의 기본 예제를 빌드하고, 반복 출력과 주요 동작을 관찰한 뒤 `Ctrl+C`에 해당하는 SIGINT로 종료했다. TODO가 있는 단원에는 참조 해답을 적용했다.
 
-FreeRTOS는 본래 마이크로컨트롤러(MCU)에서 구동되는 실시간 커널이지만, 본 튜토리얼은 하드웨어 장비(MCU 보드, JTAG 디버거, 오실로스코프 등) 없이도 PC에서 곧바로 학습할 수 있도록 **POSIX 시뮬레이션 포트(`GCC/Posix`)**를 기반으로 설계되어 있다.
+| 환경 | 도구 | 실행 조건 |
+| --- | --- | --- |
+| macOS, Apple Silicon | Apple Clang 21, CMake | 저장소의 원래 설정으로 실행 |
+| Debian 12, Linux ARM64 | GCC 12.2, CMake 3.25 | 아래 3절의 stack 깊이 호환 패치 적용 |
 
-* **동작 원리**: FreeRTOS 커널의 tick 인터럽트와 task 문맥 전환을 호스트 운영체제(Linux/macOS)의 POSIX 스레드(pthread)와 타이머 시그널로 정밀하게 시뮬레이션한다.
-* **지원 운영체제**:
-  * **Linux (Ubuntu, Debian, Fedora 등)**: 가장 추천하는 네이티브 환경
-  * **macOS**: Apple Silicon 및 Intel Mac 모두 지원
-  * **Windows**: WSL2 (Ubuntu 등 Windows Subsystem for Linux) 환경 권장
+다른 Linux 배포판·Intel Mac·WSL2는 POSIX 환경의 후보지만, 이 안내에서 모두 실행을 확인한 환경은 아니다. 먼저 T01과 T02를 실행해 도구와 task 생성이 동작하는지 확인한다. Windows에서는 Linux 환경을 준비한 뒤 Linux용 명령을 사용한다.
 
----
+### 필요한 도구 확인
 
-## 2. 필수 도구 점검 및 설치
-
-실습을 진행하기 위해 다음 4가지 도구가 필요하다. 터미널을 열고 아래 명령어를 입력하여 각 도구의 설치 여부와 버전을 확인한다.
-
-### 2.1 도구 설치 확인 명령어
-
-```bash
-# 1. C 컴파일러 확인 (GCC 또는 Clang)
-gcc --version
-
-# 2. CMake 확인 (3.15.0 이상 필요)
+```sh
+cc --version
 cmake --version
-
-# 3. 빌드 자동화 도구 확인 (GNU Make)
 make --version
-
-# 4. Git 확인
 git --version
 ```
 
-### 2.2 도구가 설치되어 있지 않은 경우 설치 방법
+CMake는 3.15 이상이 필요하다. 네 명령이 버전 정보를 출력하면 다음 단계로 진행한다. 명령을 찾지 못하면 해당 도구부터 설치한다.
 
-* **Ubuntu / Debian (WSL2 포함)**:
-  ```bash
-  sudo apt update
-  sudo apt install -y build-essential cmake git
-  ```
-* **macOS (Homebrew 사용)**:
-  ```bash
-  brew install cmake gcc
-  ```
-  *(macOS 기본 제공 `clang` 및 `make`로도 빌드 가능)*
+macOS에서는 Apple Command Line Tools와 CMake를 사용한다. Command Line Tools가 없으면 `xcode-select --install`로 설치한다. Homebrew를 사용하는 경우 `brew install cmake`로 CMake를 설치할 수 있다. Apple Clang으로 실행했으므로 별도 GNU GCC 설치는 필수가 아니다.
 
----
+Debian/Ubuntu 계열에서는 다음 패키지를 설치한다.
 
-## 3. 저장소 복제 및 서브모듈(커널 소스) 준비
+```sh
+sudo apt update
+sudo apt install build-essential cmake git
+```
 
-본 저장소는 FreeRTOS 커널의 공식 소스 코드를 Git 서브모듈(`source/FreeRTOS-Kernel`)로 참조한다. 따라서 서브모듈을 반드시 함께 초기화해야 빌드 시 커널 헤더 및 소스를 찾을 수 있다.
+## 2. 실습용 저장소 받기
 
-```bash
-# 1. 저장소를 클론한 디렉터리로 이동
-cd FreeRTOS-Tutorials-ko
+자신의 연습 코드를 수정할 별도 폴더에서 다음 명령을 실행한다. 기존 작업 폴더가 있으면 다른 이름을 사용한다.
 
-# 2. 서브모듈 초기화 및 최신 소스 다운로드
+```sh
+git clone --recurse-submodules https://github.com/yunju-baek/FreeRTOS-Tutorials-ko.git FreeRTOS-Tutorials-practice
+cd FreeRTOS-Tutorials-practice
+git rev-parse --show-toplevel
+git submodule status --recursive
+ls source/FreeRTOS-Kernel/tasks.c
+```
+
+이후 명령의 **저장소 루트**는 방금 들어온 `FreeRTOS-Tutorials-practice/`다. `source/`, `ko/`가 보이는 위치에서 시작한다. 커널은 submodule이므로 폴더 이름만 있고 내용이 비어 있으면 빌드할 수 없다.
+
+이미 clone했지만 커널 파일이 없으면 저장소 루트에서 다음을 실행한다. 저장소가 지정한 commit을 내려받는 명령이며, 임의의 최신 커널로 갱신하는 명령은 아니다.
+
+```sh
 git submodule update --init --recursive
 ```
 
-> **확인 요령**:  
-> `ls -la source/FreeRTOS-Kernel/` 명령을 실행했을 때 `tasks.c`, `queue.c`, `include/` 등의 파일이 보여야 정상이다. 만약 디렉터리가 비어 있다면 위 서브모듈 초기화 명령을 다시 실행해야 한다.
+## 3. Linux ARM64의 stack 깊이 확인
 
----
+일부 Linux ARM64 환경에서는 원문의 `configMINIMAL_STACK_SIZE`가 `PTHREAD_STACK_MIN`을 `unsigned short`로 변환하며 값이 잘린다. 확인한 환경에서는 `PTHREAD_STACK_MIN`이 131072였고 변환 결과가 0이었다. 이 경우 T01은 동작해도 task를 만드는 T02부터 `pthread_create: Invalid argument`로 종료될 수 있다.
 
-## 4. 디렉터리 구조 및 파일 역할
+이 환경에서는 **자신의 실습용 clone**에 제공된 호환 패치를 한 번 적용한다. 패치는 각 단원의 설정에서 해당 형 변환만 `size_t`로 바꾼다. 커널 소스와 예제의 학습 동작은 그대로다.
 
-실습을 진행할 때 학습자가 다루게 될 주요 파일과 폴더의 구조는 다음과 같다.
-
-```text
-FreeRTOS-Tutorials-ko/
-├── source/
-│   ├── CMakeLists.txt                 # 전체 프로젝트 빌드 스크립트 (-DTUTORIAL=N 처리)
-│   ├── FreeRTOS-Kernel/               # FreeRTOS 커널 원천 소스 (서브모듈)
-│   └── tutorials/
-│       ├── tutorial_1/
-│       │   ├── include/FreeRTOSConfig.h # 해당 단원의 커널 설정 (스케줄링, tick rate 등)
-│       │   └── source/tutorial_1.c      # 해당 단원의 C 예제 소스 (TODO 주석 포함)
-│       ├── tutorial_2/
-│       │   ├── include/FreeRTOSConfig.h
-│       │   └── source/tutorial_2.c
-│       └── ... (tutorial_21까지 동일 구조)
-└── ko/
-    ├── docs/                          # 공식 영문 튜토리얼 1:1 완역 정본
-    └── guides/                        # 자습용 단계별 해설서 (현재 보고 있는 가이드)
-        ├── README.md                  # 전체 로드맵 및 단원 목차
-        ├── getting-started.md         # 공통 실습 환경 가이드
-        ├── tutorial_1.md ~ 21.md      # 단원별 11단계 상세 가이드
-        └── solutions/                 # TODO가 있는 단원의 완성형 참조 코드
+```sh
+git apply --check ko/guides/patches/posix-stack-depth.patch
+git apply ko/guides/patches/posix-stack-depth.patch
+git diff -- source/tutorials/tutorial_2/include/FreeRTOSConfig.h
 ```
 
-* **학습자가 수정할 파일**: `source/tutorials/tutorial_N/source/tutorial_N.c`  
-  (각 단원 안내에 따라 `TODO` 주석이 달린 빈칸을 채운다.)
-* **참조 및 설정 파일**: `source/tutorials/tutorial_N/include/FreeRTOSConfig.h`  
-  (이 파일은 커널 옵션을 확인하는 읽기 전용으로 활용하며, 가이드의 안내가 없는 한 직접 수정하지 않는다.)
-* **참조 해답 파일**: `ko/guides/solutions/tutorial_N.c`  
-  (고민 후 자신의 코드와 비교하거나 복구할 때 참고하는 완성 코드이다.)
+마지막 출력에 `unsigned short`에서 `size_t`로 바뀐 한 줄이 보이는지 확인한다. 이미 적용했거나 설정을 직접 수정했다면 `--check`가 실패할 수 있다. 이때는 강제 적용하지 말고 `git diff`로 현재 변경을 확인한다. 패치 없이 실행되는 환경에서는 이 단계를 건너뛴다.
 
----
+여기서 stack 깊이는 `StackType_t`의 원소 수다. 이 POSIX port는 `StackType_t`를 `unsigned long`으로 정의하며, 위 64비트 환경에서는 원소 하나가 8바이트다. 이 값을 MCU의 바이트 단위 stack 크기로 그대로 옮기지 않는다.
 
-## 5. 표준 빌드 및 실행 절차
+## 4. 파일의 역할과 학습 순서
 
-CMake 스크립트는 `-DTUTORIAL=<번호>` 옵션을 통해 빌드할 튜토리얼 단원을 지정하도록 설계되어 있다.
+| 위치 | 역할 |
+| --- | --- |
+| `source/CMakeLists.txt` | `-DTUTORIAL=N`으로 단원을 선택하고 POSIX port와 함께 빌드 |
+| `source/tutorials/tutorial_N/source/tutorial_N.c` | 자신이 읽거나 TODO를 채울 C 파일 |
+| `source/tutorials/tutorial_N/include/FreeRTOSConfig.h` | 해당 단원의 우선순위·tick·hook 등 설정 |
+| `ko/docs/tutorial_N/README.md` | 공식 튜토리얼의 한국어 번역 |
+| `ko/guides/tutorial_N.md` | 개념·코드·실행 결과를 연결한 자습 해설 |
+| `ko/guides/solutions/tutorial_N.c` | TODO가 있는 단원의 전체 참조 해답 |
 
-### 5.1 단원 빌드 명령어
+T01·T06·T07·T08·T14·T21은 TODO가 없는 관찰 실습이다. 다른 단원은 먼저 TODO를 채운다. 미완성 코드가 컴파일되더라도 동작한다는 뜻은 아니다. 생성 결과를 검사하는 `configASSERT`에서 멈추거나, 아직 설정하지 않은 값으로 잘못 동작할 수 있다.
 
-저장소 루트(`FreeRTOS-Tutorials-ko/`)에서 터미널을 열고 다음 순서로 입력한다 (아래는 Tutorial 2 실습 예시):
+### 실행 전에 알아둘 세 상태
 
-```bash
-# 1. 빌드 결과물이 저장될 build 디렉터리 생성 및 빌드 설정 구성
-cmake -B build -S source -DTUTORIAL=2
+- **Running**: 현재 실행하는 task다.
+- **Ready**: 실행할 준비가 되어 있고 scheduler의 선택을 기다린다.
+- **Blocked**: 시간 또는 이벤트를 기다리며 실행 대상으로 선택되지 않는 상태다.
 
-# 2. 컴파일 및 실행 바이너리 생성
-cmake --build build
+대기가 끝나 Ready가 된 task가 곧바로 Running이 되는지는 우선순위와 스케줄링 조건에 달려 있다. `vTaskDelay()`나 수신 대기는 단순한 빈 반복문과 다르게 task를 Blocked 상태로 옮길 수 있다. 본 예제의 설정에서는 `INCLUDE_vTaskSuspend`가 1이므로, 해당 blocking API의 `portMAX_DELAY`를 무기한 대기에 사용한다. 다른 설정·API에 이 설명을 일괄 적용하지 않는다.
+
+<a id="solution-workflow"></a>
+## 5. 작성한 코드 보존과 해답 비교
+
+다음은 T02 예시다. 다른 단원은 실제 파일의 번호를 바꾼다. 먼저 자신이 작성한 코드를 보존한다. 백업 파일이 이미 있으면 덮어쓰지 않고 다른 이름을 선택한다.
+
+```sh
+mkdir -p practice-backups
+cp -n source/tutorials/tutorial_2/source/tutorial_2.c practice-backups/tutorial_2.c
+diff -u source/tutorials/tutorial_2/source/tutorial_2.c ko/guides/solutions/tutorial_2.c
 ```
 
-> **단원 전환 시 주의사항 (빌드 캐시 분리)**:  
-> 이전 단원(예: T02)을 빌드한 후 다른 단원(예: T03)으로 넘어갈 때는 CMake 캐시 충돌을 방지하기 위해 `rm -rf build`로 기존 빌드 폴더를 깨끗이 지우고 다시 `cmake -B build ...`를 실행하거나, 단원별로 빌드 폴더를 분리(`cmake -B build_t02 ...`, `cmake -B build_t03 ...`)하는 것이 안전하다.
+`diff`의 종료 코드 1은 두 파일에 차이가 있다는 뜻이다. TODO별 해설과 비교한 뒤 필요하면 자신의 실습 사본에만 참조 해답을 적용한다.
 
-### 5.2 바이너리 실행
-
-빌드가 성공하면 `build/` 디렉터리 안에 `freertos_example` 실행 파일이 생성된다.
-
-```bash
-./build/freertos_example
+```sh
+cp ko/guides/solutions/tutorial_2.c source/tutorials/tutorial_2/source/tutorial_2.c
 ```
 
-### 5.3 정상 종료 방법
+자기 코드로 돌아가려면 다음 명령을 사용하고 다시 빌드한다.
 
-FreeRTOS의 task는 대부분 실시간 제어를 위해 `for(;;)` 무한 루프로 동작한다. 따라서 프로그램이 자동으로 종료되지 않고 계속 로그를 출력하는 것은 정상적인 동작이다.
+```sh
+cp practice-backups/tutorial_2.c source/tutorials/tutorial_2/source/tutorial_2.c
+```
 
-* **실행 중지**: 터미널에서 **`Ctrl + C`**를 누르면 시뮬레이터 프로세스가 즉시 안전하게 종료된다.
-* 특정 단원(예: T01 등)은 일정 시간 동작 후 호스트 프로세스를 종료하도록 작성되어 있어 스스로 끝날 수도 있다.
+설정값을 바꾸는 탐구도 변경 전 파일을 같은 방식으로 보존한다. 학습 중 원래 코드와 설정의 차이는 `git diff -- source/tutorials/`로 확인할 수 있다.
 
----
+## 6. 빌드·실행·종료
 
-## 6. 자주 발생하는 공통 문제 해결 (Troubleshooting)
+처음에는 TODO가 없는 T01로 환경을 확인한다. 저장소 루트에서 실행한다.
 
-### Q1. `cmake` 실행 시 `fatal error: FreeRTOS.h: No such file or directory` 에러가 발생합니다.
-* **원인**: 커널 서브모듈이 다운로드되지 않아 헤더 파일을 찾지 못하는 상태다.
-* **해결**: 저장소 루트에서 `git submodule update --init --recursive` 명령을 실행하여 `source/FreeRTOS-Kernel` 디렉터리에 파일들이 채워졌는지 확인한다.
+```sh
+cmake -S source -B build/tutorial_1 -DTUTORIAL=1
+cmake --build build/tutorial_1
+./build/tutorial_1/freertos_example
+```
 
-### Q2. 이전 단원의 출력이 그대로 나오거나 소스 코드를 고쳤는데 반영이 안 됩니다.
-* **원인**: CMake 빌드 캐시(`CMakeCache.txt`)에 이전 단원 번호가 남아있거나 컴파일 대상이 갱신되지 않은 경우다.
-* **해결**: 빌드 디렉터리를 완전히 삭제한 후 다시 빌드한다:
-  ```bash
-  rm -rf build
-  cmake -B build -S source -DTUTORIAL=<원하는번호>
-  cmake --build build
-  ```
+`Tutorial 1 running...`이 반복되면 빌드와 기본 실행 경로가 연결된 것이다. T01은 아직 FreeRTOS task를 생성하지 않는다. 다음에는 T02의 TODO를 완성하거나 해답을 적용한 뒤 실행한다.
 
-### Q3. `printf()` 출력이 터미널에 바로바로 찍히지 않고 멈춰 있는 것처럼 보입니다.
-* **원인**: C 표준 입출력 라이브러리는 개행 문자(`\n`)가 없거나 버퍼가 꽉 차지 않으면 출력을 즉시 터미널로 방출하지 않는다.
-* **해결**: 예제 코드에는 버퍼를 강제로 비우는 `fflush(stdout);`이 포함되어 있다. 본인이 새로운 로그 코드를 추가할 때도 출력 문자열 끝에 `\n`을 붙이거나 `fflush(stdout);`을 호출해 준다.
+```sh
+cmake -S source -B build/tutorial_2 -DTUTORIAL=2
+cmake --build build/tutorial_2
+./build/tutorial_2/freertos_example
+```
 
----
+`Tutorial 2 running...`의 반복으로 task와 scheduler가 동작하는지 확인한다. 단원마다 `build/tutorial_N/`을 사용하면 이전 단원의 실행 파일과 혼동을 줄일 수 있다. 코드를 고친 뒤에는 반드시 `cmake --build`를 다시 실행한다.
 
-환경 준비가 완료되었다면 이제 **[T01: 베어메탈 프로젝트에 FreeRTOS 추가](tutorial_1.md)**부터 본격적인 학습을 시작해 보자!
+예제는 대체로 무한 루프이며 T01도 자동 종료하지 않는다. 몇 차례의 동작을 관찰한 뒤 `Ctrl+C`로 실습 프로세스를 중지한다. 이는 호스트 프로세스를 끝내는 방법이며, 실제 펌웨어에서 task와 자원을 정리하는 절차와는 구분한다.
+
+출력은 주로 `fprintf(stderr, ...)`로 나온다. 로그를 저장하려면 stderr도 함께 받는다.
+
+```sh
+./build/tutorial_2/freertos_example > build/tutorial_2/run.log 2>&1
+```
+
+이때 화면에 출력이 없는 것은 리다이렉션 때문이다. 다른 터미널에서 같은 저장소 루트로 이동해 `tail -f build/tutorial_2/run.log`로 확인할 수 있다. 관찰 후 실행 터미널과 `tail` 터미널에서 각각 `Ctrl+C`를 누른다.
+
+## 7. 증상으로 찾기
+
+| 증상 | 확인할 위치·원인 후보 | 조치와 재확인 |
+| --- | --- | --- |
+| `cmake: command not found` | CMake 설치와 PATH | 1절을 따라 설치한 뒤 `cmake --version` 확인 |
+| kernel 디렉터리·헤더를 찾지 못함 | 저장소 루트, submodule 내용, 실제 CMake 명령 | 2절의 초기화 후 `tasks.c` 존재를 확인하고 해당 단원을 다시 구성 |
+| 다른 단원의 문구가 나옴 | `-DTUTORIAL=N`, 실행 파일 경로 | 해당 단원의 7절 명령으로 구성·빌드하고 같은 `build/tutorial_N`의 파일 실행 |
+| T01은 되지만 T02부터 `pthread_create: Invalid argument` | 3절의 stack 깊이 형 변환, POSIX 환경 | 해당 조건이면 호환 패치 적용 후 다시 빌드; 계속 실패하면 도구·OS와 오류를 함께 확인 |
+| 실행 직후 아무 출력 없이 멈춤 | TODO 누락, 실패한 생성 결과, `configASSERT` 위치 | 원문 TODO·해답과 비교. 이 설정의 assert는 메시지 출력 후 종료가 아니라 무한 루프이므로 마지막 호출과 반환값 확인 |
+| 파일로 저장했는데 로그가 비어 있음 | stderr 수집 여부, 실제 실행 경로 | `2>&1`을 포함해 다시 수집하고 `run.log` 확인 |
+| 출력 순서·간격이 예시와 조금 다름 | 해당 단원의 성공 조건과 허용 변동 | 값·관계·상태 변화가 맞는지 확인. 호스트의 출력 간격만으로 MCU 실시간 성능을 판단하지 않음 |
+
+이후 [T01 자습 해설](tutorial_1.md)에서 첫 실행을 읽고, [학습 목차](README.md)를 따라 진행한다.

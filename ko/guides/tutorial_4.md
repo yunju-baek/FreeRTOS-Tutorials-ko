@@ -1,5 +1,7 @@
 # Tutorial 4: task 우선순위 (Task Priorities)
 
+[학습 목차](README.md) · [공통 준비](getting-started.md) · [공식 튜토리얼 번역](../docs/tutorial_4/README.md) · [이전 단원](tutorial_3.md)
+
 이 단원에서는 FreeRTOS 스케줄러가 여러 task 중 어떤 task를 선택하여 CPU를 할당하는지 결정하는 **우선순위(Priority)**의 기본 원칙과, 상위 task가 CPU를 독점할 때 발생하는 **기아 상태(Starvation)**를 실습한다.
 
 ---
@@ -17,8 +19,8 @@
 ## 2. 시작 전 확인
 
 ### 2.1 C 언어 핵심 복습
-* **바쁜 대기 (Busy Wait)**: 아무런 일도 하지 않는 빈 반복문(`for( i = 0; i < 1000000000; i++ );`)을 돌며 시간을 때우는 방식이다. CPU가 쉬지 않고 100% 가동되며, 커널 입장에서는 이 task가 계속해서 작업을 수행 중인 **Running 상태**로 인식된다.
-* **지연 함수와의 차이**: `vTaskDelay()`는 CPU를 즉시 양보하고 **Blocked 상태**로 들어가지만, 바쁜 대기 루프는 결코 CPU를 양보하지 않는다.
+* **바쁜 대기 (Busy Wait)**: 아무런 일도 하지 않는 빈 반복문(`for( i = 0; i < 1000000000; i++ );`)을 돌며 시간을 때우는 방식이다. FreeRTOS에 대기를 요청하지 않으므로 실행 가능 상태를 유지한다. 실행 중에는 Running이며, 더 높은 task나 같은 우선순위의 시분할에 의해 전환될 수 있다.
+* **지연 함수와의 차이**: `vTaskDelay()`는 CPU를 즉시 양보하고 **Blocked 상태**로 들어가지만, 바쁜 대기 루프 자체는 task를 Blocked로 만들지 않는다.
 
 ### 2.2 확인할 소스 및 설정 파일
 * 실습 코드: [`source/tutorials/tutorial_4/source/tutorial_4.c`](../../source/tutorials/tutorial_4/source/tutorial_4.c)
@@ -55,10 +57,10 @@ flowchart TD
    * `0`은 유휴(Idle) task와 동일한 최하위 우선순위다 (`tskIDLE_PRIORITY = 0`).
    * `1`, `2`, `3` ... 숫자가 커질수록 더 긴급하고 높은 우선순위를 뜻한다.
    * 최대 우선순위는 `FreeRTOSConfig.h`의 `configMAX_PRIORITIES - 1`이다.
-   > **주의 (ARM Cortex-M 하드웨어 인터럽트와의 혼동 금지)**: ARM Cortex-M 마이크로컨트롤러의 하드웨어 인터럽트 우선순위는 숫자가 작을수록 높은 우선순위이지만, **FreeRTOS task 우선순위는 숫자가 클수록 높은 우선순위**이다!
+   > **주의 (ARM Cortex-M 하드웨어 인터럽트와의 혼동 금지)**: ARM Cortex-M 마이크로컨트롤러의 하드웨어 인터럽트 우선순위는 숫자가 작을수록 높은 우선순위이지만, **FreeRTOS task 우선순위는 숫자가 클수록 높은 우선순위**이다
 
 2. **기아 상태 (Starvation)**:
-   * 우선순위가 높은 task가 `vTaskDelay()` 등을 통해 스스로 Blocked 상태로 빠지지 않고 100% CPU를 점유하면, 우선순위가 낮은 task는 영원히 CPU를 할당받지 못한다. 이를 **기아 상태(Starvation)**라고 부른다.
+   * 우선순위가 높은 task가 `vTaskDelay()` 등을 통해 스스로 Blocked 상태로 빠지지 않고 계속 실행 가능 상태라면, 우선순위가 낮은 task는 영원히 CPU를 할당받지 못한다. 이를 **기아 상태(Starvation)**라고 부른다.
 
 ---
 
@@ -75,13 +77,13 @@ sequenceDiagram
     Main->>Kernel: High Task 생성 (우선순위 1)
     Main->>Kernel: Low Task 생성 (우선순위 0)
     Main->>Kernel: vTaskStartScheduler() 호출
-    Note over Kernel: 스케줄러는 우선순위가 더 높은 High Task를 선택!
+    Note over Kernel: 스케줄러는 우선순위가 더 높은 High Task를 선택
     Kernel->>High: High Task 실행 시작
     loop 무한 반복 (바쁜 대기)
         High->>High: "high priority task running..." 출력
-        High->>High: 10억 번 빈 루프 실행 (CPU 100% 독점)
+        High->>High: 10억 번 빈 루프 실행 (Blocked로 가지 않음)
     end
-    Note over Low: Low Task는 영원히 CPU를 받지 못하고 굶주림(Starvation) 상태에 머뭄!
+    Note over Low: Low Task는 영원히 CPU를 받지 못하고 굶주림(Starvation) 상태에 머뭄
 ```
 
 ---
@@ -115,6 +117,8 @@ static void prvHighPriorityTaskFunction( void * pvParams )
 
 ## 6. 직접 구현 또는 관찰 준비
 
+전체 참조 해답은 [tutorial_4.c](solutions/tutorial_4.c)에 있다. 먼저 TODO별 힌트를 따라 작성하고, [자기 코드 보존·해답 적용·복구 절차](getting-started.md#solution-workflow)에 따라 비교한다.
+
 `source/tutorials/tutorial_4/source/tutorial_4.c` 파일을 열고 두 개의 TODO를 채운다.
 
 ### 6.1 TODO 1: High Priority Task 생성
@@ -125,6 +129,9 @@ static void prvHighPriorityTaskFunction( void * pvParams )
 * 매개변수: `NULL`
 * **우선순위: `1`**
 * 태스크 핸들: `NULL`
+
+* **TODO 1 힌트 1**: 먼저 높은 우선순위 task를 만든다. 우선순위 숫자가 클수록 먼저 선택된다.
+* **TODO 1 힌트 2**: `main`에서 High 함수와 이름을 연결하고 다섯 번째 인자에 1을 준다. 반환값 검사를 위해 결과를 저장한다.
 
 <details>
 <summary>TODO 1 해답 코드 보기</summary>
@@ -137,6 +144,8 @@ static void prvHighPriorityTaskFunction( void * pvParams )
                                        1,
                                        NULL );
 ```
+
+**이유**: 먼저 높은 우선순위 task를 만든다. 우선순위 숫자가 클수록 먼저 선택된다.
 </details>
 
 ### 6.2 TODO 2: Low Priority Task 생성
@@ -147,6 +156,9 @@ static void prvHighPriorityTaskFunction( void * pvParams )
 * 매개변수: `NULL`
 * **우선순위: `0`**
 * 태스크 핸들: `NULL`
+
+* **TODO 2 힌트 1**: 비교할 낮은 우선순위 task도 생성되어 Ready가 되어야 한다.
+* **TODO 2 힌트 2**: Low 함수·이름과 우선순위 0을 연결한다. 스택 깊이와 나머지 인자는 TODO 1과 같은 조건이다.
 
 <details>
 <summary>TODO 2 해답 코드 보기</summary>
@@ -159,6 +171,8 @@ static void prvHighPriorityTaskFunction( void * pvParams )
                                        0,
                                        NULL );
 ```
+
+**이유**: 비교할 낮은 우선순위 task도 생성되어 Ready가 되어야 한다.
 </details>
 
 > 전체 완성 코드는 [`ko/guides/solutions/tutorial_4.c`](solutions/tutorial_4.c)에서 확인할 수 있다.
@@ -167,17 +181,17 @@ static void prvHighPriorityTaskFunction( void * pvParams )
 
 ## 7. 빌드와 실행
 
-저장소 루트에서 다음 명령을 실행한다:
+[공통 준비](getting-started.md)의 학습용 사본 루트에서 다음 명령을 실행한다:
 
 ```bash
 # 1. CMake 빌드 구성 (Tutorial 4 지정)
-cmake -B build -S source -DTUTORIAL=4
+cmake -S source -B build/tutorial_4 -DTUTORIAL=4
 
 # 2. 컴파일 및 빌드
-cmake --build build
+cmake --build build/tutorial_4
 
 # 3. 바이너리 실행
-./build/freertos_example
+./build/tutorial_4/freertos_example
 ```
 
 * **종료 방법**: 터미널에서 **`Ctrl + C`**를 누른다.
@@ -186,7 +200,10 @@ cmake --build build
 
 ## 8. 결과 해석
 
-### 8.1 정상 실행 출력 화면
+### 8.1 출력 예시
+
+High만 진행하는 것이 이 코드의 핵심이다. busy loop의 실제 소요 시간은 CPU와 빌드 옵션에 따라 다르다.
+
 ```text
 Tutorial 4 high priority task running...
 Tutorial 4 high priority task running...
@@ -199,7 +216,7 @@ Tutorial 4 high priority task running...
 * **원인**:
   1. High Task(우선순위 1)와 Low Task(우선순위 0) 모두 Ready 상태다.
   2. 스케줄러는 항상 우선순위가 더 높은 High Task에게만 CPU를 준다.
-  3. High Task가 지연 함수(`vTaskDelay`)를 쓰지 않고 busy wait 루프만 돌며 CPU를 1초도 양보하지 않으므로, Low Task는 영원히 실행 기회를 얻지 못하는 **기아 상태(Starvation)**에 빠진다.
+  3. High Task가 지연 함수(`vTaskDelay`)를 쓰지 않고 busy wait 루프만 돌아 실행 가능 상태를 유지하므로, Low Task는 영원히 실행 기회를 얻지 못하는 **기아 상태(Starvation)**에 빠진다.
 
 ---
 
@@ -235,25 +252,25 @@ Low Task(우선순위 0)가 단 한 줄도 실행되지 못한 근본적인 원�
 * **효과**: High Task가 1초 동안 Blocked 상태로 들어가면, 스케줄러는 그 시간 동안 CPU가 비어있으므로 차순위인 Low Task에게 CPU를 넘겨 실행할 수 있게 된다.
 </details>
 
-### 질문 3 (조건 변형 실험)
-`tutorial_4.c`의 `prvHighPriorityTaskFunction` 내부의 빈 루프 횟수를 다음과 같이 `100`으로 줄여보아도 Low Task는 여전히 실행되지 못하는가?
-```c
-for( i = 0; i < 100; i++ ) { }
-```
+### 질문 3 (한 조건 변형과 실행 추적)
+`prvHighPriorityTaskFunction`의 busy loop 상한만 `1000000000`에서 `100`으로 줄인다.
+
+실행 전에 바뀔 결과와 유지될 조건을 각각 적는다. 자기 풀이와 변경 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)로 남긴다. 한 조건만 수정하고 `cmake --build build/tutorial_4`으로 다시 빌드한 뒤 실행해 예측과 비교한다. 아래 해설은 변형의 예상 결과이며, 직접 얻은 로그와 구분한다.
 
 <details>
-<summary>정답 및 해설 확인</summary>
+<summary>예상 결과와 해설 확인</summary>
 
-* **정답**: 그렇다. 여전히 실행되지 못한다.
-* **이유**: 루프 횟수가 100번이든 10억 번이든 상관없이, task가 `vTaskDelay()` 등으로 Blocked 상태로 들어가지 않고 무한 루프 내에서 계속 실행 중이라면 스케줄러 입장에서는 High Task가 끊임없이 CPU를 원하고 있는 상태이기 때문이다.
+High 로그는 더 자주 나올 수 있지만 Low는 실행 기회를 얻지 못한다. 반복 횟수를 줄여도 High가 Blocked로 들어가지는 않는다.
 </details>
+
+**복구와 재확인**: 변경한 한 값(추가한 코드라면 그 한 줄)을 원래대로 돌리고 같은 단원을 다시 빌드·실행한다. 원래 조건의 8절 결과와 비교한다. 설명이 어려우면 [관련 개념 다시 읽기](#3-개념-이해)로 돌아간다.
 
 ---
 
 ## 11. 다음 학습
 
-우선순위의 원리와 기아 상태를 이해했다.  
-이제 **[Tutorial 5: task 매개변수 (Task Parameters)](tutorial_5.md)**로 넘어가서, 여러 task가 하나의 공통 함수를 공유하면서 서로 다른 고유 데이터(매개변수)를 넘겨받아 동작하는 코드 재사용 기법을 배워보자!
+우선순위의 원리와 기아 상태를 이해했다.
+이제 **[Tutorial 5: task 매개변수 (Task Parameters)](tutorial_5.md)**로 넘어가서, 여러 task가 하나의 공통 함수를 공유하면서 서로 다른 고유 데이터(매개변수)를 넘겨받아 동작하는 코드 재사용 기법을 배운다.
 
 * **한국어 커널북 심화 읽기**:
   * [4.5장: task 우선순위 (Task Priorities)](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/27d03c61cd2a6cf5a6fa6333082218ef706f5b89/ko/ch04.md)

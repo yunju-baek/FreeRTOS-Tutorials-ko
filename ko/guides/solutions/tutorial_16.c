@@ -1,9 +1,25 @@
 /*
- * FreeRTOS-Tutorials (참조 완성 해답)
+ * FreeRTOS-Tutorials
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
  * SPDX-License-Identifier: MIT-0
  *
- * 이 파일은 Tutorial 16의 모든 TODO가 완성된 참조 코드입니다.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * https://www.FreeRTOS.org
+ * https://github.com/FreeRTOS
+ *
  */
 
 /* Standard includes. */
@@ -70,6 +86,8 @@ int main( void )
 
     /*
      * TODO 1 - Create event group using xEventGroupCreate API.
+     *
+     * Assign the return value to xEventGroup.
      */
     xEventGroup = xEventGroupCreate();
 
@@ -100,6 +118,12 @@ static void prvTask1( void * pvParams )
 
         /*
          * TODO 2 - Synchronize using xEventGroupSync API.
+         *
+         * Use the following values for xEventGroupSync parameters:
+         * xEventGroup      xEventGroup
+         * uxBitsToSet      TASK_1_BIT
+         * uxBitsToWaitFor  ( TASK_1_BIT | TASK_2_BIT | TASK_3_BIT )
+         * xTicksToWait     portMAX_DELAY
          */
         xEventGroupSync( xEventGroup,
                          TASK_1_BIT,
@@ -124,6 +148,12 @@ static void prvTask2( void * pvParams )
 
         /*
          * TODO 3 - Synchronize using xEventGroupSync API.
+         *
+         * Use the following values for xEventGroupSync parameters:
+         * xEventGroup      xEventGroup
+         * uxBitsToSet      TASK_2_BIT
+         * uxBitsToWaitFor  ( TASK_1_BIT | TASK_2_BIT | TASK_3_BIT )
+         * xTicksToWait     portMAX_DELAY
          */
         xEventGroupSync( xEventGroup,
                          TASK_2_BIT,
@@ -148,6 +178,12 @@ static void prvTask3( void * pvParams )
 
         /*
          * TODO 4 - Synchronize using xEventGroupSync API.
+         *
+         * Use the following values for xEventGroupSync parameters:
+         * xEventGroup      xEventGroup
+         * uxBitsToSet      TASK_3_BIT
+         * uxBitsToWaitFor  ( TASK_1_BIT | TASK_2_BIT | TASK_3_BIT )
+         * xTicksToWait     portMAX_DELAY
          */
         xEventGroupSync( xEventGroup,
                          TASK_3_BIT,

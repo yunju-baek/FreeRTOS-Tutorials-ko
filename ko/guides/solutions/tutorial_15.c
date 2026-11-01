@@ -1,9 +1,25 @@
 /*
- * FreeRTOS-Tutorials (참조 완성 해답)
+ * FreeRTOS-Tutorials
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
  * SPDX-License-Identifier: MIT-0
  *
- * 이 파일은 Tutorial 15의 모든 TODO가 완성된 참조 코드입니다.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * https://www.FreeRTOS.org
+ * https://github.com/FreeRTOS
+ *
  */
 
 /* Standard includes. */
@@ -69,6 +85,8 @@ int main( void )
 
     /*
      * TODO 1 - Create event group using xEventGroupCreate API.
+     *
+     * Assign the return value to xEventGroup.
      */
     xEventGroup = xEventGroupCreate();
 
@@ -100,6 +118,10 @@ static void prvEventGeneratorTask( void * pvParams )
         /*
          * TODO 2 - Set EVENT_1_BIT in the event group using xEventGroupSetBits
          * API.
+         *
+         * Use the following values for xEventGroupSetBits parameters:
+         * xEventGroup  xEventGroup
+         * uxBitsToSet  EVENT_1_BIT
          */
         xEventGroupSetBits( xEventGroup, EVENT_1_BIT );
 
@@ -110,6 +132,10 @@ static void prvEventGeneratorTask( void * pvParams )
         /*
          * TODO 3 - Set EVENT_2_BIT in the event group using xEventGroupSetBits
          * API.
+         *
+         * Use the following values for xEventGroupSetBits parameters:
+         * xEventGroup  xEventGroup
+         * uxBitsToSet  EVENT_2_BIT
          */
         xEventGroupSetBits( xEventGroup, EVENT_2_BIT );
 
@@ -131,6 +157,15 @@ static void prvEventHandlerTask1( void * pvParams )
     {
         /*
          * TODO 4 - Wait for events using xEventGroupWaitBits API.
+         *
+         * Use the following values for xEventGroupWaitBits parameters:
+         * xEventGroup      xEventGroup
+         * uxBitsToWaitFor  ( EVENT_1_BIT | EVENT_2_BIT )
+         * xClearOnExit     pdTRUE
+         * xWaitForAllBits  pdTRUE
+         * xTicksToWait     portMAX_DELAY
+         *
+         * Assign the return value to xEventBitsValue.
          */
         xEventBitsValue = xEventGroupWaitBits( xEventGroup,
                                                ( EVENT_1_BIT | EVENT_2_BIT ),
@@ -161,6 +196,15 @@ static void prvEventHandlerTask2( void * pvParams )
     {
         /*
          * TODO 5 - Wait for events using xEventGroupWaitBits API.
+         *
+         * Use the following values for xEventGroupWaitBits parameters:
+         * xEventGroup      xEventGroup
+         * uxBitsToWaitFor  ( EVENT_1_BIT | EVENT_2_BIT )
+         * xClearOnExit     pdTRUE
+         * xWaitForAllBits  pdTRUE
+         * xTicksToWait     portMAX_DELAY
+         *
+         * Assign the return value to xEventBitsValue.
          */
         xEventBitsValue = xEventGroupWaitBits( xEventGroup,
                                                ( EVENT_1_BIT | EVENT_2_BIT ),

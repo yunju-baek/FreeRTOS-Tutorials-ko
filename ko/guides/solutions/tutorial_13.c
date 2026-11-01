@@ -1,9 +1,25 @@
 /*
- * FreeRTOS-Tutorials (참조 완성 해답)
+ * FreeRTOS-Tutorials
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
  * SPDX-License-Identifier: MIT-0
  *
- * 이 파일은 Tutorial 13의 모든 TODO가 완성된 참조 코드입니다.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * https://www.FreeRTOS.org
+ * https://github.com/FreeRTOS
+ *
  */
 
 /* Standard includes. */
@@ -53,6 +69,8 @@ int main( void )
 
     /*
      * TODO 1 - Create a mutex using xSemaphoreCreateMutex API.
+     *
+     * Assign the return value to xMutex.
      */
     xMutex = xSemaphoreCreateMutex();
 
@@ -83,6 +101,10 @@ static void prvTask1( void * pvParams )
     {
         /*
          * TODO 2 - Take the mutex using xSemaphoreTake API.
+         *
+         * Use the following values for xSemaphoreTake parameters:
+         * xSemaphore   xMutex
+         * xBlockTime   portMAX_DELAY
          */
         xSemaphoreTake( xMutex, portMAX_DELAY );
 
@@ -91,6 +113,11 @@ static void prvTask1( void * pvParams )
         }
         /*
          * TODO 3 - Give the mutex using xSemaphoreGive API.
+         *
+         * Use the following values for xSemaphoreGive parameters:
+         * xSemaphore   xMutex
+         *
+         * Assign the return value to xSemaphoreGiveResult.
          */
         xSemaphoreGiveResult = xSemaphoreGive( xMutex );
 
@@ -113,6 +140,10 @@ static void prvTask2( void * pvParams )
     {
         /*
          * TODO 4 - Take the mutex using xSemaphoreTake API.
+         *
+         * Use the following values for xSemaphoreTake parameters:
+         * xSemaphore   xMutex
+         * xBlockTime   portMAX_DELAY
          */
         xSemaphoreTake( xMutex, portMAX_DELAY );
 
@@ -121,6 +152,11 @@ static void prvTask2( void * pvParams )
         }
         /*
          * TODO 5 - Give the mutex using xSemaphoreGive API.
+         *
+         * Use the following values for xSemaphoreGive parameters:
+         * xSemaphore   xMutex
+         *
+         * Assign the return value to xSemaphoreGiveResult.
          */
         xSemaphoreGiveResult = xSemaphoreGive( xMutex );
 

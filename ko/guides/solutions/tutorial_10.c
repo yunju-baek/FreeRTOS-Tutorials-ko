@@ -1,9 +1,25 @@
 /*
- * FreeRTOS-Tutorials (참조 완성 해답)
+ * FreeRTOS-Tutorials
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
  * SPDX-License-Identifier: MIT-0
  *
- * 이 파일은 Tutorial 10의 모든 TODO가 완성된 참조 코드입니다.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * https://www.FreeRTOS.org
+ * https://github.com/FreeRTOS
+ *
  */
 
 /* Standard includes. */
@@ -49,6 +65,12 @@ int main( void )
 
     /* TODO 1 - Create a queue capable of holding 5 UBaseType_t using
      * xQueueCreate API.
+     *
+     * Use the following values for xQueueCreate parameters:
+     * uxQueueLength    5
+     * uxItemSize       sizeof( UBaseType_t )
+     *
+     * Assign the return value to xQueue.
      */
     xQueue = xQueueCreate( 5, sizeof( UBaseType_t ) );
 
@@ -77,7 +99,13 @@ static void prvReceiverTask( void * pvParams )
 
     for( ;; )
     {
-        /* TODO 2 - Receive from the queue using xQueueReceive API. */
+        /* TODO 2 - Receive from the queue using xQueueReceive API.
+         *
+         * Use the following values for xQueueReceive parameters:
+         * xQueue           xQueue
+         * pvBuffer         &( uxReceivedValue )
+         * xTicksToWait     portMAX_DELAY
+         */
         xQueueReceive( xQueue, &( uxReceivedValue ), portMAX_DELAY );
 
         fprintf( stderr, "Value received from the queue: %lu\r\n", uxReceivedValue );
@@ -95,7 +123,15 @@ void vApplicationTickHook( void )
 
     if( ( uxCounter % 1000 ) == 0 )
     {
-        /* TODO 3 - Send uxCounter to the queue using xQueueSendFromISR API. */
+        /* TODO 3 - Send uxCounter to the queue using xQueueSendFromISR API.
+         *
+         * Use the following values for xQueueSend parameters:
+         * xQueue                       xQueue
+         * pvItemToQueue                &( uxCounter )
+         * pxHigherPriorityTaskWoken    &( xHighPriorityTaskWoken )
+         *
+         * Assign the return value to xQueueSendResult.
+         */
         xQueueSendResult = xQueueSendFromISR( xQueue,
                                               &( uxCounter ),
                                               &( xHighPriorityTaskWoken ) );

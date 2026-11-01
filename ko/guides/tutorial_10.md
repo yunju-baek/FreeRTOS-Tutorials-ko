@@ -1,12 +1,14 @@
 # Tutorial 10: 인터럽트와 task 간의 queue 통신 (Using Queues for Communication between Interrupts and Tasks)
 
+[학습 목차](README.md) · [공통 준비](getting-started.md) · [공식 튜토리얼 번역](../docs/tutorial_10/README.md) · [이전 단원](tutorial_9.md)
+
 이 단원에서는 하드웨어 인터럽트 서비스 루틴(ISR)에서 발생한 데이터를 task로 안전하게 전달하는 **`FromISR` 전용 API**와 **지연된 인터럽트 처리(Deferred Interrupt Processing)**의 기초를 실습한다.
 
 ---
 
 ## 1. 이번 실습에서 할 일
 
-* **해결하려는 문제**: 인터럽트 문맥(ISR)은 절대 대기(Block)하거나 잠들 수 없으므로, 일반 task용 API를 ISR에서 호출하면 시스템이 크래시된다. ISR 전용 API 규칙을 이해하고 적용한다.
+* **해결하려는 문제**: ISR에서는 task처럼 Blocked로 기다릴 수 없다. 큐 송신의 ISR 전용 API를 선택하고 호출 가능 조건을 지킨다.
 * **학습 목표**:
   1. 일반 FreeRTOS API와 `...FromISR` 접미사가 붙은 ISR 전용 API의 차이를 명확히 설명할 수 있다.
   2. Tick Hook 인터럽트 핸들러에서 `xQueueSendFromISR()`을 호출하여 큐로 데이터를 전송한다.
@@ -18,7 +20,9 @@
 
 ### 2.1 임베디드 인터럽트 핵심 복습
 * **인터럽트 문맥 (Interrupt Context)**: 하드웨어 이벤트(타이머, UART 수신, GPIO 핀 변화 등)가 발생하면 CPU는 현재 실행 중이던 task를 즉시 멈추고 인터럽트 벡터로 점프하여 ISR을 실행한다.
-* **ISR의 황금률**:
+* 이 실습의 tick hook은 POSIX 포트가 모사한 인터럽트 경로에서 실행된다. 실제 MCU의 인터럽트 우선순위·마스킹 규칙은 해당 포트 문서로 확인한다.
+
+**ISR의 규칙**:
   1. **절대 잠들지 말 것 (Never Block)**: ISR은 자신만의 독립된 task 스택이나 TCB가 없으므로 `vTaskDelay()`를 부르거나 큐가 비워질 때까지 기다릴 수 없다.
   2. **최대한 빨리 끝낼 것 (Short and Fast)**: ISR이 길어지면 다른 중요한 하드웨어 인터럽트를 놓치거나 시스템 실시간성이 붕괴된다.
 
@@ -34,17 +38,17 @@
 
 ## 3. 개념 이해
 
-### 3.1 왜 일반 API를 ISR에서 쓰면 안 되는가?
-`xQueueSend()`의 3번째 인자는 `xTicksToWait`(대기 시간)이다. 만약 큐가 꽉 차 있으면 커널은 호출자를 Blocked 상태로 만들어 재우려고 시도한다.  
-하지만 **ISR은 운영체제의 스케줄링 대상(task)이 아니므로 재울 수 없다!** 만약 ISR에서 일반 API를 호출하면 커널 내부 assert에 걸리거나 시스템이 멈춘다.  
+### 3.1 왜 큐 송신에 ISR 전용 API가 필요한가?
+`xQueueSend()`의 3번째 인자는 `xTicksToWait`(대기 시간)이다. 만약 큐가 꽉 차 있으면 커널은 호출자를 Blocked 상태로 만들어 재우려고 시도한다.
+하지만 **ISR은 운영체제의 스케줄링 대상(task)이 아니므로 재울 수 없다** task용 큐 API를 ISR에서 쓰면 커널 상태를 손상시키거나 assertion으로 멈출 수 있다. 모든 API를 이름만으로 판단하지 말고 ISR 사용 가능 여부를 각 API 계약에서 확인한다.
 따라서 FreeRTOS는 ISR에서 호출할 수 있는 함수들을 별도로 분리하고 이름 끝에 **`FromISR`**을 붙여 두었다.
 
 ```mermaid
 flowchart TD
     subgraph ISR["인터럽트 문맥 (vApplicationTickHook)"]
         I1["xQueueSendFromISR() 호출<br/>(대기 시간 인자 없음, 즉시 시도)"] --> I2["데이터를 큐에 넣음"]
-        I2 --> I3["더 높은 우선순위 태스크가 깨어났는가?<br/>xHighPriorityTaskWoken = pdTRUE"]
-        I3 --> I4["portYIELD_FROM_ISR() 호출<br/>(인터럽트 복귀 시 즉시 문맥 전환 요청)"]
+        I2 --> I3["중단된 task보다 높은 우선순위가 Ready가 되었는가?<br/>그 조건일 때만 플래그가 pdTRUE"]
+        I3 --> I4["portYIELD_FROM_ISR() 호출<br/>(플래그가 참일 때 포트에 전환 요청)"]
     end
 
     subgraph Task["태스크 문맥 (prvReceiverTask)"]
@@ -54,10 +58,13 @@ flowchart TD
     I2 -.큐 버퍼.-> T1
 ```
 
-### 3.2 `pxHigherPriorityTaskWoken`과 `portYIELD_FROM_ISR`
-1. ISR이 큐에 데이터를 밀어 넣음으로써, 그동안 큐에서 데이터가 오길 애타게 기다리던 높은 우선순위 task가 **Blocked → Ready 상태**로 깨어날 수 있다.
-2. 하지만 지금은 인터럽트 처리 중이므로 즉시 문맥 전환을 할 수 없다. 그래서 커널은 `pxHigherPriorityTaskWoken` 변수의 값을 `pdTRUE`로 세팅해 준다.
-3. ISR의 맨 마지막 줄에서 `portYIELD_FROM_ISR( xHighPriorityTaskWoken );`을 호출하면, 인터럽트 핸들러가 종료되는 순간 **원래 중단되었던 task로 돌아가지 않고, 방금 깨어난 높은 우선순위 task로 곧장 CPU를 스위칭**한다! (이를 통해 인터럽트 처리 지연을 제로로 만든다.)
+### 3.2 `pxHigherPriorityTaskWoken`과 조건부 전환
+
+1. ISR 진입 때 플래그를 `pdFALSE`로 초기화한다. 큐 전송이 대기 task를 Ready로 만들 수 있다.
+2. 그 task의 우선순위가 ISR에 의해 중단된 task보다 높을 때 API가 플래그를 `pdTRUE`로 설정한다. 단순히 큐에 값을 넣었다고 항상 참이 되지는 않는다.
+3. `portYIELD_FROM_ISR( xHighPriorityTaskWoken )`로 조건부 전환을 요청한다. 이 과정에도 실행 시간이 들므로 지연이 0이 되는 것은 아니다.
+
+이 예제의 Receiver는 우선순위 0으로 Idle task와 같다. 따라서 `pdTRUE`와 즉시 선점을 관찰의 필수 조건으로 삼지 않는다. Receiver는 Ready가 된 뒤 tick의 스케줄링 등으로 선택되어 실행될 수 있다.
 
 ---
 
@@ -66,17 +73,17 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     autonumber
-    participant HW as 하드웨어 타이머 (Tick)
+    participant HW as POSIX 포트의 Tick 처리
     participant ISR as vApplicationTickHook (ISR)
     participant Q as FreeRTOS Queue
     participant R as Receiver Task
 
     Note over R: Receiver는 큐가 비어 Blocked 상태로 대기 중
-    HW->>ISR: 1000번째 Tick 인터럽트 발생!
+    HW->>ISR: 1000번째 Tick 인터럽트 발생
     ISR->>Q: xQueueSendFromISR(uxCounter) 호출 (TODO 3)
-    Note over Q: 큐에 데이터가 들어오며 Receiver가 Ready로 깨어남!<br/>xHighPriorityTaskWoken = pdTRUE 세팅
+    Note over Q: Receiver를 Ready로 전환<br/>우선순위 조건에 따라 플래그 설정
     ISR->>HW: portYIELD_FROM_ISR() 호출
-    Note over HW,R: 인터럽트 복귀 시 기존 task가 아닌 깨어난 Receiver로 즉시 문맥 전환!
+    Note over HW,R: 조건부 yield 요청과 tick 스케줄링을 거쳐<br/>Receiver가 선택되면 실행
     Q->>R: xQueueReceive() 성공
     R->>R: "Value received from the queue: 1000" 출력
     R->>Q: 다음 xQueueReceive() 호출 (다시 Blocked 대기)
@@ -98,16 +105,21 @@ BaseType_t xQueueSendFromISR( QueueHandle_t xQueue,
 
 ### 5.2 `portYIELD_FROM_ISR()` 매크로
 * ISR의 맨 마지막에서 호출한다.
-* 인자로 전달된 변수(`xHighPriorityTaskWoken`)가 `pdTRUE`이면 펜딩 인터럽트(PendSV 등)를 걸어 인터럽트가 끝나는 시점에 즉시 스케줄러를 가동시킨다.
+* 플래그가 `pdTRUE`이면 포트에 문맥 전환을 요청한다. 이 POSIX 포트의 매크로는 조건부 `vPortYield()`를 사용한다. Cortex-M의 PendSV 설명을 이 PC 실습에 그대로 적용하지 않는다.
 
 ---
 
 ## 6. 직접 구현 또는 관찰 준비
 
+전체 참조 해답은 [tutorial_10.c](solutions/tutorial_10.c)에 있다. 먼저 TODO별 힌트를 따라 작성하고, [자기 코드 보존·해답 적용·복구 절차](getting-started.md#solution-workflow)에 따라 비교한다.
+
 `source/tutorials/tutorial_10/source/tutorial_10.c` 파일을 열고 세 개의 TODO를 완성한다.
 
 ### 6.1 TODO 1: 큐 생성 (`main` 함수)
 66~74행 주석: 크기 5, 항목 크기 `sizeof( UBaseType_t )`의 큐를 생성한다.
+
+* **TODO 1 힌트 1**: ISR과 수신 task가 같은 큐를 사용하도록 먼저 객체를 만든다.
+* **TODO 1 힌트 2**: `main`에서 길이 5, 항목 크기 `sizeof(UBaseType_t)`를 전달하고 핸들을 저장한다.
 
 <details>
 <summary>TODO 1 해답 코드 보기</summary>
@@ -115,10 +127,15 @@ BaseType_t xQueueSendFromISR( QueueHandle_t xQueue,
 ```c
     xQueue = xQueueCreate( 5, sizeof( UBaseType_t ) );
 ```
+
+**이유**: ISR과 수신 task가 같은 큐를 사용하도록 먼저 객체를 만든다.
 </details>
 
 ### 6.2 TODO 2: task에서 큐 수신 (`prvReceiverTask`)
 101~108행 주석: 큐에서 데이터를 무기한 대기하여 꺼낸다.
+
+* **TODO 2 힌트 1**: task 문맥의 수신자는 데이터가 없을 때 Blocked로 기다릴 수 있다.
+* **TODO 2 힌트 2**: `prvReceiverTask`에서 `uxReceivedValue`의 주소와 `portMAX_DELAY`를 사용한다.
 
 <details>
 <summary>TODO 2 해답 코드 보기</summary>
@@ -126,11 +143,16 @@ BaseType_t xQueueSendFromISR( QueueHandle_t xQueue,
 ```c
         xQueueReceive( xQueue, &( uxReceivedValue ), portMAX_DELAY );
 ```
+
+**이유**: task 문맥의 수신자는 데이터가 없을 때 Blocked로 기다릴 수 있다.
 </details>
 
 ### 6.3 TODO 3: ISR에서 큐 송신 (`vApplicationTickHook`)
 125~133행 주석 부분을 찾는다:
-* **주의**: 일반 `xQueueSend`가 아니라 반드시 **`xQueueSendFromISR`**을 호출해야 한다!
+* **주의**: 일반 `xQueueSend`가 아니라 반드시 **`xQueueSendFromISR`**을 호출해야 한다
+
+* **TODO 3 힌트 1**: tick hook에서는 대기할 수 없으므로 ISR용 송신 함수를 사용한다.
+* **TODO 3 힌트 2**: `vApplicationTickHook`의 1000 tick 조건 안에서 카운터 주소와 `xHighPriorityTaskWoken` 주소를 넘긴다. 기존 yield 요청은 그대로 둔다.
 
 <details>
 <summary>TODO 3 해답 코드 보기</summary>
@@ -140,6 +162,8 @@ BaseType_t xQueueSendFromISR( QueueHandle_t xQueue,
                                               &( uxCounter ),
                                               &( xHighPriorityTaskWoken ) );
 ```
+
+**이유**: tick hook에서는 대기할 수 없으므로 ISR용 송신 함수를 사용한다.
 </details>
 
 > 전체 완성 코드는 [`ko/guides/solutions/tutorial_10.c`](solutions/tutorial_10.c)에서 확인할 수 있다.
@@ -148,17 +172,17 @@ BaseType_t xQueueSendFromISR( QueueHandle_t xQueue,
 
 ## 7. 빌드와 실행
 
-저장소 루트에서 다음 명령을 실행한다:
+[공통 준비](getting-started.md)의 학습용 사본 루트에서 다음 명령을 실행한다:
 
 ```bash
 # 1. CMake 빌드 구성 (Tutorial 10 지정)
-cmake -B build -S source -DTUTORIAL=10
+cmake -S source -B build/tutorial_10 -DTUTORIAL=10
 
 # 2. 컴파일 및 빌드
-cmake --build build
+cmake --build build/tutorial_10
 
 # 3. 바이너리 실행
-./build/freertos_example
+./build/tutorial_10/freertos_example
 ```
 
 * **종료 방법**: 터미널에서 **`Ctrl + C`**를 누른다.
@@ -167,7 +191,10 @@ cmake --build build
 
 ## 8. 결과 해석
 
-### 8.1 정상 실행 출력 화면
+### 8.1 출력 예시
+
+수신 값이 1000 tick 단위로 늘어나는지 확인한다. 정확한 벽시계 간격이나 yield 플래그의 참을 요구하지 않는다.
+
 ```text
 Value received from the queue: 1000
 Number of items in the queue: 0.
@@ -178,8 +205,8 @@ Number of items in the queue: 0.
 ```
 
 ### 8.2 판정 기준 및 해석
-* **결과의 특징**: 1초(1000 tick)마다 `uxCounter` 값이 1000씩 증가하며 출력된다.
-* **원리 확인**: `vApplicationTickHook`은 1ms마다 한 번씩 불린다. 코드의 `if( ( uxCounter % 1000 ) == 0 )` 조건이 정확히 1000번째 tick 인터럽트(즉 1초)마다 참이 되어 큐로 숫자를 쐈고, 수신 task가 이를 받아서 즉시 출력했음을 검증한다.
+* **결과의 특징**: tick hook 1000회마다 전송하므로 수신 값은 1000씩 증가한다.
+* **원리 확인**: 설정상 명목 tick 간격은 1ms이며 `vApplicationTickHook`은 tick 처리 때 호출된다. `if( ( uxCounter % 1000 ) == 0 )` 조건은 1000 tick마다 참이 된다. 수신 값이 1000씩 늘어나는지를 확인한다. 호스트 벽시계 간격이나 ISR에서 출력까지의 지연이 정확히 고정된다는 뜻은 아니다.
 
 ---
 
@@ -201,7 +228,7 @@ Number of items in the queue: 0.
 <summary>정답 및 해설 확인</summary>
 
 * **정답**: 인터럽트 서비스 루틴(ISR)은 절대 Blocked 상태(대기 상태)로 들어갈 수 없기 때문이다.
-* **이유**: ISR은 특정 task 문맥이 아닌 시스템 최상위 권한에서 실행되므로, 빈자리가 날 때까지 잠들어 기다린다는 개념 자체가 불가능하다. 즉시 쓸 수 없으면 에러를 내고 바로 리턴해야 한다.
+* **이유**: ISR은 커널이 Blocked로 전환할 수 있는 task가 아니므로 빈자리가 날 때까지 기다릴 수 없다. 즉시 쓸 수 없으면 에러를 내고 바로 리턴해야 한다.
 </details>
 
 ### 질문 2 (지연된 인터럽트 처리 패턴)
@@ -214,12 +241,25 @@ Number of items in the queue: 0.
 * **이유**: ISR은 최소한의 데이터만 큐에 넣고 즉시 복귀하여 다른 인터럽트를 놓치지 않게 하고, 시간이 오래 걸리는 무거운 연산은 일반 task가 CPU를 받아 여유롭게 처리하게 만들기 위함이다.
 </details>
 
+### 질문 3 (한 조건 변형과 실행 추적)
+`vApplicationTickHook`의 조건에서 나머지 연산의 기준만 `% 1000`에서 `% 500`으로 바꾼다.
+
+실행 전에 바뀔 결과와 유지될 조건을 각각 적는다. 자기 풀이와 변경 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)로 남긴다. 한 조건만 수정하고 `cmake --build build/tutorial_10`으로 다시 빌드한 뒤 실행해 예측과 비교한다. 아래 해설은 변형의 예상 결과이며, 직접 얻은 로그와 구분한다.
+
+<details>
+<summary>예상 결과와 해설 확인</summary>
+
+수신 값이 500, 1000, 1500 순으로 증가할 것으로 예상한다. ISR용 API와 조건부 yield 플래그는 그대로이며 수신마다 플래그가 참일 필요는 없다.
+</details>
+
+**복구와 재확인**: 변경한 한 값(추가한 코드라면 그 한 줄)을 원래대로 돌리고 같은 단원을 다시 빌드·실행한다. 원래 조건의 8절 결과와 비교한다. 설명이 어려우면 [관련 개념 다시 읽기](#3-개념-이해)로 돌아간다.
+
 ---
 
 ## 11. 다음 학습
 
-인터럽트와 task 간의 데이터 전송을 완벽히 마스터했다!  
-이제 **[Tutorial 11: software timer (Software Timers)](tutorial_11.md)**로 넘어가서, 하드웨어 타이머 개수가 부족할 때 커널이 소프트웨어적으로 무제한 타이머를 만들어 주는 소프트웨어 타이머 데몬과 콜백 함수를 배워보자!
+인터럽트 경로에서 데이터를 보내고 task에서 처리하는 방식을 살펴보았다.
+이제 **[Tutorial 11: software timer](tutorial_11.md)**로 넘어가서, 하드웨어 타이머 개수가 부족할 때 메모리와 처리 여유 범위에서 여러 타이머를 관리하는 타이머 서비스 task와 콜백 함수를 배운다.
 
 * **한국어 커널북 심화 읽기**:
   * [7.2장: FromISR API의 규칙](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/27d03c61cd2a6cf5a6fa6333082218ef706f5b89/ko/ch07.md)
