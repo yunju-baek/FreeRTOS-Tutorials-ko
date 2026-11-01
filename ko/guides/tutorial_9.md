@@ -98,7 +98,7 @@ sequenceDiagram
 QueueHandle_t xQueueCreate( UBaseType_t uxQueueLength, UBaseType_t uxItemSize );
 ```
 * `uxQueueLength`: 큐에 동시에 담을 수 있는 최대 항목 수 (이번 실습: `5`).
-* `uxItemSize`: 각 항목 1개의 바이트 크기 (`sizeof( UBaseType_t )`).
+* `uxItemSize`: 항목 1개가 차지하는 바이트 수 (`sizeof( UBaseType_t )`).
 * **반환값**: 성공 시 `QueueHandle_t`, 힙 메모리 부족 시 `NULL`.
 
 ### 5.2 `xQueueSend()` API
@@ -255,10 +255,10 @@ FreeRTOS 큐가 데이터를 전송할 때 "Pass by Copy" 방식을 기본으로
 * **원리**: 큐가 비어 있으면 `xQueueReceive()` 내부에서 수신 task를 **Blocked 상태**로 전환시켜 CPU를 즉시 양보한다. 이후 송신 task가 1초 뒤 데이터를 큐에 넣을 때까지 수신 task는 Blocked로 대기하여 스케줄러의 실행 대상에서 빠진다.
 </details>
 
-### 질문 3 (한 조건 변형과 실행 추적)
+### 질문 3 (조건 변경과 결과 예측)
 `prvSenderTask`의 `pdMS_TO_TICKS(1000)`만 `pdMS_TO_TICKS(500)`으로 바꾼다.
 
-실행 전에 바뀔 결과와 유지될 조건을 각각 적는다. 자기 풀이와 변경 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)로 남긴다. 한 조건만 수정하고 `cmake --build build/tutorial_9`으로 다시 빌드한 뒤 실행해 예측과 비교한다. 아래 해설은 변형의 예상 결과이며, 직접 얻은 로그와 구분한다.
+실행 전에 어떤 결과가 달라지고 어떤 동작이 그대로 유지될지 적는다. 직접 작성한 코드와 수정 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)에 따라 보관한다. 위에서 지정한 조건 하나만 바꾸고 `cmake --build build/tutorial_9` 명령으로 다시 빌드한다. 실행 결과를 예측과 비교한 뒤 아래 해설을 확인한다. 해설은 예상 결과를 설명한 것이므로 직접 얻은 로그와 구분한다.
 
 <details>
 <summary>예상 결과와 해설 확인</summary>
@@ -266,7 +266,7 @@ FreeRTOS 큐가 데이터를 전송할 때 "Pass by Copy" 방식을 기본으로
 수신 빈도가 늘어나도 FIFO 값은 1, 2, 3 순으로 유지될 것으로 예상한다. 정확한 벽시계 간격보다 값의 순서를 확인한다.
 </details>
 
-**복구와 재확인**: 변경한 한 값(추가한 코드라면 그 한 줄)을 원래대로 돌리고 같은 단원을 다시 빌드·실행한다. 원래 조건의 8절 결과와 비교한다. 설명이 어려우면 [관련 개념 다시 읽기](#5-코드와-api-이해)로 돌아간다.
+**복구와 재확인**: `prvSenderTask`의 `pdMS_TO_TICKS(500)`을 `pdMS_TO_TICKS(1000)`으로 되돌린다. 같은 단원을 다시 빌드하고 실행하여 [8절의 결과](#8-결과-해석)와 비교한다. 결과를 설명하기 어려우면 [관련 개념 다시 읽기](#5-코드와-api-이해)로 돌아간다.
 
 ---
 

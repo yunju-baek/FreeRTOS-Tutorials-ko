@@ -22,7 +22,7 @@ make --version
 git --version
 ```
 
-CMake는 3.15 이상이 필요하다. 네 명령이 버전 정보를 출력하면 다음 단계로 진행한다. 명령을 찾지 못하면 해당 도구부터 설치한다.
+CMake는 3.15 이상이 필요하다. 위 명령어 네 개가 모두 버전 정보를 출력하면 다음 단계로 진행한다. 명령을 찾지 못하면 해당 도구부터 설치한다.
 
 macOS에서는 Apple Command Line Tools와 CMake를 사용한다. Command Line Tools가 없으면 `xcode-select --install`로 설치한다. Homebrew를 사용하는 경우 `brew install cmake`로 CMake를 설치할 수 있다. Apple Clang으로 실행했으므로 별도 GNU GCC 설치는 필수가 아니다.
 
@@ -65,7 +65,7 @@ git apply ko/guides/patches/posix-stack-depth.patch
 git diff -- source/tutorials/tutorial_2/include/FreeRTOSConfig.h
 ```
 
-마지막 출력에 `unsigned short`에서 `size_t`로 바뀐 한 줄이 보이는지 확인한다. 이미 적용했거나 설정을 직접 수정했다면 `--check`가 실패할 수 있다. 이때는 강제 적용하지 말고 `git diff`로 현재 변경을 확인한다. 패치 없이 실행되는 환경에서는 이 단계를 건너뛴다.
+마지막 명령의 출력에서 형 변환 부분이 `unsigned short`에서 `size_t`로 바뀌었는지 확인한다. 이미 적용했거나 설정을 직접 수정했다면 `--check`가 실패할 수 있다. 이때는 강제 적용하지 말고 `git diff`로 현재 변경을 확인한다. 패치 없이 실행되는 환경에서는 이 단계를 건너뛴다.
 
 여기서 stack 깊이는 `StackType_t`의 원소 수다. 이 POSIX port는 `StackType_t`를 `unsigned long`으로 정의하며, 위 64비트 환경에서는 원소 하나가 8바이트다. 이 값을 MCU의 바이트 단위 stack 크기로 그대로 옮기지 않는다.
 
@@ -82,7 +82,7 @@ git diff -- source/tutorials/tutorial_2/include/FreeRTOSConfig.h
 
 T01·T06·T07·T08·T14·T21은 TODO가 없는 관찰 실습이다. 다른 단원은 먼저 TODO를 채운다. 미완성 코드가 컴파일되더라도 동작한다는 뜻은 아니다. 생성 결과를 검사하는 `configASSERT`에서 멈추거나, 아직 설정하지 않은 값으로 잘못 동작할 수 있다.
 
-### 실행 전에 알아둘 세 상태
+### task의 세 가지 실행 상태
 
 - **Running**: 현재 실행하는 task다.
 - **Ready**: 실행할 준비가 되어 있고 scheduler의 선택을 기다린다.

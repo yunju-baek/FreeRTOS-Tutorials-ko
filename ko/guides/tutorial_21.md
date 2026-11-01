@@ -144,8 +144,8 @@ taskEXIT_CRITICAL();
 
 실습 파일: [`source/tutorials/tutorial_21/source/tutorial_21.c`](../../source/tutorials/tutorial_21/source/tutorial_21.c)
 
-### 6.1 세 가지 공유 변수 선언 확인
-파일 상단에 세 가지 서로 다른 목적으로 정의된 전역 카운터가 있다:
+### 6.1 공유 카운터 3개의 선언 확인
+파일 상단에는 용도가 서로 다른 전역 카운터 3개가 정의되어 있다:
 ```c
 static uint32_t ulSharedCounter1BetweenTasks = 0;
 static uint32_t ulSharedCounter2BetweenTasks = 0;
@@ -246,10 +246,10 @@ Task 2 ulSharedCounterBetweenTasksAndInterrupts: 1005.
   * 뮤텍스는 객체 생성 메모리와 우선순위 상속 처리 오버헤드가 있지만, **해당 뮤텍스를 쓰지 않는 다른 독립적인 task들은 정상적으로 선점되어 실행**되므로 시스템 전체의 실시간성에 미치는 영향이 최소화된다.
 </details>
 
-### 질문 3 (한 조건 변형과 실행 추적)
+### 질문 3 (조건 변경과 결과 예측)
 `prvTask1`의 지연값만 1000ms에서 500ms로 바꾸고 모든 보호 구역과 Task 2는 유지한다.
 
-실행 전에 바뀔 결과와 유지될 조건을 각각 적는다. 자기 풀이와 변경 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)로 남긴다. 한 조건만 수정하고 `cmake --build build/tutorial_21`으로 다시 빌드한 뒤 실행해 예측과 비교한다. 아래 해설은 변형의 예상 결과이며, 직접 얻은 로그와 구분한다.
+실행 전에 어떤 결과가 달라지고 어떤 동작이 그대로 유지될지 적는다. 직접 작성한 코드와 수정 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)에 따라 보관한다. 위에서 지정한 조건 하나만 바꾸고 `cmake --build build/tutorial_21` 명령으로 다시 빌드한다. 실행 결과를 예측과 비교한 뒤 아래 해설을 확인한다. 해설은 예상 결과를 설명한 것이므로 직접 얻은 로그와 구분한다.
 
 <details>
 <summary>예상 결과와 해설 확인</summary>
@@ -257,7 +257,7 @@ Task 2 ulSharedCounterBetweenTasksAndInterrupts: 1005.
 Task 1 반복이 더 잦아져 C1·C2의 시간당 갱신도 늘어날 수 있다. C3에는 계속 tick 갱신이 포함된다. 같은 task의 연속 반복을 비교하며 특정 차이나 race 재현을 요구하지 않는다.
 </details>
 
-**복구와 재확인**: 변경한 한 값(추가한 코드라면 그 한 줄)을 원래대로 돌리고 같은 단원을 다시 빌드·실행한다. 원래 조건의 8절 결과와 비교한다. 설명이 어려우면 [관련 개념 다시 읽기](#8-결과-해석)로 돌아간다.
+**복구와 재확인**: `prvTask1`의 지연 시간을 500ms에서 1000ms로 되돌린다. 같은 단원을 다시 빌드하고 실행하여 [8절의 결과](#8-결과-해석)와 비교한다. 결과를 설명하기 어려우면 [관련 개념 다시 읽기](#8-결과-해석)로 돌아간다.
 
 ---
 

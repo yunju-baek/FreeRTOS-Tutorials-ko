@@ -288,10 +288,10 @@ Tutorial 1의 `sleep(1)`과 Tutorial 2의 `vTaskDelay(pdMS_TO_TICKS(1000))`의 �
 * `sleep(1)`은 호출한 호스트 스레드를 대기시킨다. `vTaskDelay()`는 FreeRTOS task를 Blocked로 만들어 커널이 다른 Ready task를 선택하게 한다. 둘 다 바쁜 대기 루프와는 다르다.
 </details>
 
-### 질문 4 (한 조건 변형과 실행 추적)
+### 질문 4 (조건 변경과 결과 예측)
 `prvTaskFunction`의 지연값을 1000ms에서 200ms로 바꾼다.
 
-실행 전에 바뀔 결과와 유지될 조건을 각각 적는다. 자기 풀이와 변경 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)로 남긴다. 한 조건만 수정하고 `cmake --build build/tutorial_2`으로 다시 빌드한 뒤 실행해 예측과 비교한다. 아래 해설은 변형의 예상 결과이며, 직접 얻은 로그와 구분한다.
+실행 전에 어떤 결과가 달라지고 어떤 동작이 그대로 유지될지 적는다. 직접 작성한 코드와 수정 전 파일은 [공통 보존·복구 절차](getting-started.md#solution-workflow)에 따라 보관한다. 위에서 지정한 조건 하나만 바꾸고 `cmake --build build/tutorial_2` 명령으로 다시 빌드한다. 실행 결과를 예측과 비교한 뒤 아래 해설을 확인한다. 해설은 예상 결과를 설명한 것이므로 직접 얻은 로그와 구분한다.
 
 <details>
 <summary>예상 결과와 해설 확인</summary>
@@ -299,7 +299,7 @@ Tutorial 1의 `sleep(1)`과 Tutorial 2의 `vTaskDelay(pdMS_TO_TICKS(1000))`의 �
 출력이 더 자주 나타난다. 지연 뒤 Ready가 되는 것과 곧바로 Running이 되는 것은 다르므로 정확히 초당 5줄을 조건으로 삼지 않는다.
 </details>
 
-**복구와 재확인**: 변경한 한 값(추가한 코드라면 그 한 줄)을 원래대로 돌리고 같은 단원을 다시 빌드·실행한다. 원래 조건의 8절 결과와 비교한다. 설명이 어려우면 [관련 개념 다시 읽기](#5-코드와-api-이해)로 돌아간다.
+**복구와 재확인**: `prvTaskFunction`의 지연 시간을 200ms에서 1000ms로 되돌린다. 같은 단원을 다시 빌드하고 실행하여 [8절의 결과](#8-결과-해석)와 비교한다. 결과를 설명하기 어려우면 [관련 개념 다시 읽기](#5-코드와-api-이해)로 돌아간다.
 
 ---
 
