@@ -2,7 +2,7 @@
 
 [FreeRTOS 공식 튜토리얼](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials)의 소개와 실습 21개를 한국어로 옮겼다. **비공식 한국어 번역**이며 FreeRTOS/AWS의 공식 발행물이 아니다.
 
-**[한국어 튜토리얼 목차](ko/README.md)** · **[커널북 한국어판](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko)** · [커널북 목차](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/main/ko/toc.md) · [영문 원본 소개](README.upstream.md)
+**[자습 해설 가이드 (Self-Study Guides)](ko/guides/README.md)** · **[한국어 튜토리얼 목차](ko/README.md)** · **[커널북 한국어판](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko)** · [커널북 목차](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/main/ko/toc.md) · [영문 원본 소개](README.upstream.md)
 
 ## 튜토리얼
 
