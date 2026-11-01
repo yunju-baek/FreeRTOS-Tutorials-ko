@@ -26,7 +26,7 @@ semaphore는 task(태스크) 간 또는 인터럽트(interrupt)와 task 간의 �
 1. 출력을 이해한다.
 
 ## 관련 자료
-> 다음 링크는 학습을 돕기 위해 번역자가 추가한 보충 자료이며, 공식 튜토리얼 원문의 일부가 아니다.
+
 * [원문 README](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/docs/tutorial_12/README.md)
 * [원문 C 소스 (`tutorial_12.c`)](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/source/tutorials/tutorial_12/source/tutorial_12.c)
 * [원문 설정 (`FreeRTOSConfig.h`)](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/source/tutorials/tutorial_12/include/FreeRTOSConfig.h)

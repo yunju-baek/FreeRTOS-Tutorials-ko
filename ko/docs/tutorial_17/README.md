@@ -33,7 +33,7 @@ task notification을 binary semaphore 대신 사용할 때는 수신 task의 not
 1. 출력을 이해한다.
 
 ## 관련 자료
-> 다음 링크는 학습을 돕기 위해 번역자가 추가한 보충 자료이며, 공식 튜토리얼 원문의 일부가 아니다.
+
 * [원문 README](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/docs/tutorial_17/README.md)
 * [원문 C 소스 (`tutorial_17.c`)](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/source/tutorials/tutorial_17/source/tutorial_17.c)
 * [원문 설정 (`FreeRTOSConfig.h`)](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/source/tutorials/tutorial_17/include/FreeRTOSConfig.h)
