@@ -1,2 +1,0 @@
-# Unified-diff context markers preserve a leading space on blank lines.
-publish/review-2026-11-01/*.diff -whitespace

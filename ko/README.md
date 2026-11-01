@@ -1,6 +1,6 @@
 # FreeRTOS 시작하기 (Getting-Started-With-FreeRTOS)
 
-> 이 문서는 [FreeRTOS 공식 튜토리얼 저장소](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials)(commit `c89d7164ec6161c57a2ece61df412d6e3e013317`)의 비공식 한국어 번역본이다.
+> 이 문서는 [FreeRTOS 공식 튜토리얼 저장소](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials)의 비공식 한국어 번역본이다.
 
 이 저장소에는 FreeRTOS 커널을 처음 사용하는 사람을 위한 튜토리얼 모음이 담겨 있다.
 

@@ -19,7 +19,7 @@ FreeRTOS 코드는 크게 2가지 부분으로 구성된다:
 
 1. **설정 파일(Config File)** - 애플리케이션 작성자는 FreeRTOS-Kernel 동작을 설정하기 위해 `FreeRTOSConfig.h` 파일을 제공해야 한다.
 
-> [옮긴이 주] 원문은 코드가 2가지 부분으로 구성된다고 설명하지만, 목록에는 공통 코드·port 계층·설정 파일의 세 항목을 나열한다. 이 번역은 원문의 수치와 목록을 유지했다.
+> [옮긴이 주] 원문은 코드가 2가지 부분으로 구성된다고 설명하지만, 목록에는 공통 코드·port 계층·설정 파일의 세 항목을 나열한다.
 
 # 실습 단계 (Steps)
 1. 빌드를 위해 저장소 루트에서 다음 명령을 실행한다:
@@ -37,7 +37,7 @@ FreeRTOS 코드는 크게 2가지 부분으로 구성된다:
    ```
 
 ## 관련 자료
-> 다음 링크는 학습을 돕기 위해 번역자가 추가한 보충 자료이며, 공식 튜토리얼 원문의 일부가 아니다.
+
 * [원문 README](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/docs/tutorial_1/README.md)
 * [원문 C 소스 (`tutorial_1.c`)](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/source/tutorials/tutorial_1/source/tutorial_1.c)
 * [원문 설정 (`FreeRTOSConfig.h`)](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/blob/c89d7164ec6161c57a2ece61df412d6e3e013317/source/tutorials/tutorial_1/include/FreeRTOSConfig.h)

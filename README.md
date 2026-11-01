@@ -1,12 +1,8 @@
 # FreeRTOS Tutorials 한국어판
 
-**비공식 한국어 번역 · Unofficial Korean translation**
+[FreeRTOS 공식 튜토리얼](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials)의 소개와 실습 21개를 한국어로 옮겼다. **비공식 한국어 번역**이며 FreeRTOS/AWS의 공식 발행물이 아니다.
 
-[FreeRTOS/Lab-Project-FreeRTOS-Tutorials](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials)의 소개와 공식 튜토리얼 21개를 한국어로 옮긴 저장소다. FreeRTOS 또는 AWS가 제공하거나 승인·검수한 공식 번역본이 아니다.
-
-This is an **unofficial Korean translation** of the [FreeRTOS tutorials](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials). It is not an official or endorsed FreeRTOS/AWS publication.
-
-**[한국어 튜토리얼 목차에서 읽기](ko/README.md)** · **[함께 읽는 커널북 한국어판](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko)** · [커널북 목차](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/main/ko/toc.md) · [영문 원본 소개](README.upstream.md)
+**[한국어 튜토리얼 목차](ko/README.md)** · **[커널북 한국어판](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko)** · [커널북 목차](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/main/ko/toc.md) · [영문 원본 소개](README.upstream.md)
 
 ## 튜토리얼
 
@@ -34,30 +30,21 @@ This is an **unofficial Korean translation** of the [FreeRTOS tutorials](https:/
 | T20 | [메시지 버퍼 (Message Buffer)](ko/docs/tutorial_20/README.md) |
 | T21 | [자원 관리 (Resource Management)](ko/docs/tutorial_21/README.md) |
 
-각 문서의 관련 자료에서 원문 README, C source, `FreeRTOSConfig.h`, 관련 커널북 장·절을 찾을 수 있다. T19·T20의 stream/message buffer에는 이 커널북 판본의 직접 대응 독립 장이 없다.
+각 튜토리얼 끝에는 원문 README, C 소스, `FreeRTOSConfig.h`와 관련 커널북 장을 연결했다.
 
-## 구성과 검수
+## 실습 준비
 
-- `ko/`: 소개 1개와 튜토리얼 21개의 한국어 Markdown, 번역 manifest와 검수 기록.
-- `docs/`, `source/`: 공식 영문 튜토리얼, 예제 C source, 설정, kernel submodule.
-- `README.upstream.md`: 원래 저장소 소개를 byte 단위로 보존한 파일.
-- [검수 결과](ko/REVIEW_NOTES.md): 표현·용어 교정, 원문 의심 사항, 실제 검수 범위.
-- [번역 지침](ko/TRANSLATION_GUIDE.md), [작업 절차](ko/WORKFLOW.md), [현재 상태](PROJECT_STATE.md).
-
-원문과 한국어 문서의 코드 블록 50개가 일치한다. 영문 원본 파일 70개, 한국어 목차 링크 21개, 고정 원문 링크 63개와 커널북 장 연결 19개를 확인했다. 22개 문서의 front matter 부재와 HTML 표시를 검수했다. 현재 상태는 `source-checked`이며 사람의 최종 교열·예제 빌드·실행·실보드 검증을 완료한 판본은 아니다.
-
-## 받기와 검사
+예제를 실행하려면 GCC 컴파일러와 CMake 3.15.0 이상이 필요하다. 예제는 POSIX port를 사용하며, 학습자가 완성할 TODO가 포함되어 있다.
 
 ```sh
 git clone --recurse-submodules https://github.com/yunju-baek/FreeRTOS-Tutorials-ko.git
 cd FreeRTOS-Tutorials-ko
-python3 tools/verify_translation.py
 ```
 
-문서만 읽을 때는 submodule 초기화가 필요하지 않다. 원문 예제에는 학습자가 완성할 TODO가 있으며, 이번 번역에서 해답으로 바꾸지 않았다. 원문 빌드는 POSIX port를 사용한다. STM32 포팅이나 플랫폼별 실행 검증은 별도 작업이다.
-
-한국어판 정본은 이 저장소의 `main`이다. `origin`은 한국어판, `upstream`은 [공식 영문 저장소](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials)로 구분한다. 영문 기준은 [`c89d7164ec6161c57a2ece61df412d6e3e013317`](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials/tree/c89d7164ec6161c57a2ece61df412d6e3e013317)이며 `upstream-baseline` branch와 manifest에 보존했다. 후속 수정은 작업 branch에서 검수한 뒤 이 저장소에 PR로 제출한다.
+튜토리얼별 빌드·실행 방법은 각 문서의 실습 단계를 따른다. 문서만 읽을 때는 clone이나 submodule 초기화가 필요하지 않다.
 
 ## 출처와 이용 조건
 
-원문 저작권 고지: **Amazon.com, Inc. or its affiliates. All Rights Reserved.** 한국어 번역·교정과 커널북 연결은 원문에 대한 변경이다. [원본 LICENSE](LICENSE)의 **MIT No Attribution** 고지를 보존한다. kernel과 하위 submodule의 별도 라이선스도 유지한다. 커널북은 별도 저장소이며 그 저장소에 명시된 이용 조건을 따른다.
+원문: [FreeRTOS/Lab-Project-FreeRTOS-Tutorials](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials). 저작권: Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+[MIT No Attribution 라이선스](LICENSE)를 따른다. kernel과 하위 submodule, 커널북은 각 저장소에 명시된 라이선스를 따른다.
