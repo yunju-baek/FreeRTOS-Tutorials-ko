@@ -1,6 +1,8 @@
 # FreeRTOS 시작하기 (Getting-Started-With-FreeRTOS)
 
 > 이 문서는 [FreeRTOS 공식 튜토리얼 저장소](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials)의 비공식 한국어 번역본이다.
+>
+> 💡 **단계별 자습 해설서**: 강사의 설명 없이도 개념 이해, TODO 코드 구현, 빌드/실행 결과 분석, 자가 점검 퀴즈 및 트러블슈팅을 완주할 수 있는 상세 자습 해설서는 **[FreeRTOS 튜토리얼 자습 가이드](guides/README.md)**에서 이용할 수 있다.
 
 이 저장소에는 FreeRTOS 커널을 처음 사용하는 사람을 위한 튜토리얼 모음이 담겨 있다.
 

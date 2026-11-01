@@ -2,7 +2,7 @@
 
 [FreeRTOS 공식 튜토리얼](https://github.com/FreeRTOS/Lab-Project-FreeRTOS-Tutorials)의 소개와 실습 21개를 한국어로 옮겼다. **비공식 한국어 번역**이며 FreeRTOS/AWS의 공식 발행물이 아니다.
 
-**[한국어 튜토리얼 목차](ko/README.md)** · **[커널북 한국어판](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko)** · [커널북 목차](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/main/ko/toc.md) · [영문 원본 소개](README.upstream.md)
+**[자습 해설 가이드](ko/guides/README.md)** · **[한국어 튜토리얼 목차](ko/README.md)** · **[커널북 한국어판](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko)** · [커널북 목차](https://github.com/yunju-baek/FreeRTOS-Kernel-Book-ko/blob/main/ko/toc.md) · [영문 원본 소개](README.upstream.md)
 
 ## 튜토리얼
 
@@ -30,11 +30,11 @@
 | T20 | [메시지 버퍼 (Message Buffer)](ko/docs/tutorial_20/README.md) |
 | T21 | [자원 관리 (Resource Management)](ko/docs/tutorial_21/README.md) |
 
-각 튜토리얼 끝에는 원문 README, C 소스, `FreeRTOSConfig.h`와 관련 커널북 장을 연결했다.
+각 튜토리얼 끝에는 원문 README, C 소스, `FreeRTOSConfig.h`와 관련 커널북 장을 연결했다. 별도로 작성한 [자습 해설](ko/guides/README.md)은 개념 설명, 단계별 힌트, 결과 해석과 자가 점검을 제공한다.
 
 ## 실습 준비
 
-예제를 실행하려면 GCC 컴파일러와 CMake 3.15.0 이상이 필요하다. 예제는 POSIX port를 사용하며, 학습자가 완성할 TODO가 포함되어 있다.
+예제는 PC의 POSIX port에서 실행한다. C 컴파일러(GCC 또는 Clang), CMake 3.15 이상과 Git이 필요하며, 학습자가 완성할 TODO가 포함되어 있다. [공통 실습 환경 준비](ko/guides/getting-started.md)에서 도구 설치, Linux 환경별 호환 설정, 해답 비교와 빌드·실행 방법을 확인한다.
 
 ```sh
 git clone --recurse-submodules https://github.com/yunju-baek/FreeRTOS-Tutorials-ko.git
